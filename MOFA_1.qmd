@@ -1,0 +1,12 @@
+```{r}
+setwd("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/data_in/singlecell_data")
+
+```
+
+```{r}
+install.packages('Seurat')
+```
+```{r}
+
+```
+
