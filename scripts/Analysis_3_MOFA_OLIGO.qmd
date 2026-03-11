@@ -18,12 +18,41 @@ colnames(bulk_counts)
 colnames(opalin_vst)
 ```
 
+Selecting the top 5000 highly variable features (though this feels low)
+```{r}
+# select top 5000 most variable peaks per view
+bulk_vars       <- apply(bulk_counts, 1, var)
+bulk_top_idx    <- head(order(bulk_vars, decreasing = TRUE), 5000)
+bulk_hvf        <- bulk_counts[bulk_top_idx, ]
+bulk_hvf        <- bulk_hvf - rowMeans(bulk_hvf)
+
+# opalin
+opalin_vars     <- apply(opalin_vst, 1, var)
+opalin_top_idx  <- head(order(opalin_vars, decreasing = TRUE), 5000)
+opalin_hvf      <- opalin_vst[opalin_top_idx, ]
+opalin_hvf      <- opalin_hvf - rowMeans(opalin_hvf)
+
+dim(bulk_hvf)
+dim(opalin_hvf)
+
+```
+
+
+
+
+
+
+
+
 create the input list for opalin subtype and oligo bulk data
 ```{r}
 mofa_input_opalin <- list(
-  bulk   = as.matrix(bulk_counts),
-  opalin = as.matrix(opalin_vst)
+  bulk   = as.matrix(bulk_hvf),
+  opalin = as.matrix(opalin_hvf)
 )
+
+mofa_opalin <- create_mofa(mofa_input_opalin)
+plot_data_overview(mofa_opalin)
 ```
 
 create the moda object and plot the data overview 
@@ -57,7 +86,7 @@ train_opts$seed <- 42
 train_opts
 ```
 prepare the MOFA model and train
-The model had issues with using less than 10 samples, as recommnded I have reduced my factors down to 2 from 10
+The model had issues with using less than 10 samples, as recommnded I have reduced my factors down to 3 from 10
 
 ```{r}
 mofa_opalin <- prepare_mofa(mofa_opalin,
@@ -92,13 +121,83 @@ samples_metadata(mofa_opalin) <- sample_meta
 
 ```{r}
 plot_factor_cor(mofa_opalin)
+
+plot_variance_explained(mofa_opalin, max_r2 = 15)
 ```
 
 
 
 
 ```{r}
-plot_variance_explained(mofa_opalin, max_r2 = 15)
+
+```
+Need to do some checks, looking at an explanation for the issues with Factor 1
+```{r}
+# check if there are big differences in total accessibility per sample
+colSums(bulk_counts)
+colSums(opalin_vst)
 ```
 
+
+
+Going to try all the olgio subtypes vs bulk so 4 views and see what happens over 2 factors. As recommended I have reduced the amount of factors and adjusted maxiter to increase the number of iterations. Doubled the deafualt 
+
+```{r}
+# select HVFs for bulk and 3 subtypes
+
+bulk_vars       <- apply(bulk_counts, 1, var)
+bulk_top_idx    <- head(order(bulk_vars, decreasing = TRUE), 5000)
+bulk_hvf        <- bulk_counts[bulk_top_idx, ]
+bulk_hvf        <- bulk_hvf - rowMeans(bulk_hvf)
+
+
+opalin_vars     <- apply(opalin_vst, 1, var)
+opalin_top_idx  <- head(order(opalin_vars, decreasing = TRUE), 5000)
+opalin_hvf      <- opalin_vst[opalin_top_idx, ]
+opalin_hvf      <- opalin_hvf - rowMeans(opalin_hvf)
+
+plekhg1_vars    <- apply(plekhg1_vst, 1, var)
+plekhg1_top_idx <- head(order(plekhg1_vars, decreasing = TRUE), 5000)
+plekhg1_hvf     <- plekhg1_vst[plekhg1_top_idx, ]
+plekhg1_hvf     <- plekhg1_hvf - rowMeans(plekhg1_hvf)
+
+opc_vars        <- apply(opc_vst, 1, var)
+opc_top_idx     <- head(order(opc_vars, decreasing = TRUE), 5000)
+opc_hvf         <- opc_vst[opc_top_idx, ]
+opc_hvf         <- opc_hvf - rowMeans(opc_hvf)
+
+# create 4-view MOFA object
+mofa_input_all <- list(
+  bulk    = as.matrix(bulk_hvf),
+  opalin  = as.matrix(opalin_hvf),
+  plekhg1 = as.matrix(plekhg1_hvf),
+  opc     = as.matrix(opc_hvf)
+)
+
+mofa_all <- create_mofa(mofa_input_all)
+plot_data_overview(mofa_all)
+```
+
+
+
+```{r}
+data_opts_all  <- get_default_data_options(mofa_all)
+
+model_opts_all <- get_default_model_options(mofa_all)
+model_opts_all$num_factors <- 2
+
+train_opts_all <- get_default_training_options(mofa_all)
+train_opts_all$convergence_mode <- "slow"
+train_opts_all$maxiter <- 2000
+train_opts_all$seed <- 42
+
+mofa_all <- prepare_mofa(mofa_all,
+                         data_options     = data_opts_all,
+                         model_options    = model_opts_all,
+                         training_options = train_opts_all)
+
+mofa_all <- run_mofa(mofa_all,
+                     outfile      = "mofa_all_model.hdf5",
+                     use_basilisk = TRUE)
+```
 
