@@ -32,6 +32,14 @@ opalin_gr  <- make_gr(opalin_peaks)
 plekhg1_gr <- make_gr(plekhg1_peaks)
 opc_gr     <- make_gr(opc_peaks)
 
+#save granges objects for next analysis 
+save(bulk_counts, oligo_bulk_data, bulk_meta, sample_mapping,
+     opalin_vst, plekhg1_vst, opc_vst,
+     bulk_peaks, opalin_peaks, plekhg1_peaks, opc_peaks,
+     bulk_gr, opalin_gr, plekhg1_gr, opc_gr,
+     file = "/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/mofa_OLIGO_pseudobulked_granges.RData")
+
+
 #find overlaps between peaks for each oligo bulk vs olgio subtype
 overlaps_opalin  <- findOverlaps(bulk_gr, opalin_gr)
 overlaps_plekhg1 <- findOverlaps(bulk_gr, plekhg1_gr)
@@ -87,6 +95,34 @@ fit_opc <- euler(c(
 plot(fit_opalin,  quantities = TRUE, fills = c("steelblue", "#E69F00"), edges = FALSE, main = "Bulk vs Opalin+")
 plot(fit_plekhg1, quantities = TRUE, fills = c("steelblue", "#009E73"), edges = FALSE, main = "Bulk vs Plekhg1+")
 plot(fit_opc,     quantities = TRUE, fills = c("steelblue", "#CC79A7"),edges = FALSE, main = "Bulk vs OPCs")
+
+#combined venn
+
+# combine all sc peaks into one set
+all_sc_peaks <- unique(c(opalin_peaks, plekhg1_peaks, opc_peaks))
+
+# convert to GRanges
+all_sc_gr <- make_gr(all_sc_peaks)
+
+# find overlaps
+overlaps_all_sc <- findOverlaps(bulk_gr, all_sc_gr)
+
+# euler
+all_sc_shared      <- length(unique(queryHits(overlaps_all_sc)))
+all_sc_bulk_unique <- length(bulk_peaks) - all_sc_shared
+all_sc_sc_unique   <- length(all_sc_peaks) - length(unique(subjectHits(overlaps_all_sc)))
+
+fit_all_sc <- euler(c(
+  "Bulk"            = all_sc_bulk_unique,
+  "SC oligodendrocytes" = all_sc_sc_unique,
+  "Bulk&SC oligodendrocytes" = all_sc_shared
+))
+
+plot(fit_all_sc, quantities = TRUE, fills = c("steelblue", "#009E73"), edges = FALSE,
+     main = "Bulk vs All SC oligodendrocyte subtypes")
+
+
+
 
 #ANALYSIS, LOOKING AT PEAK SIZE
 
@@ -182,4 +218,4 @@ summary(opc_df_unique$width[opc_df_unique$category == "OPC unique"])
 BiocManager::install("TxDb.Hsapiens.UCSC.hg38.knownGene")
 BiocManager::install("org.Hs.eg.db")
 
-
+BiocManager::install("clusterProfiler")

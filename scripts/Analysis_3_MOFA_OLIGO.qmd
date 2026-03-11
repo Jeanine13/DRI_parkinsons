@@ -1,0 +1,101 @@
+---
+title: "OLIGO_mofa"
+format: html
+editor: visual
+---
+
+Pseudobulked data is loaded. Script used for this was the "MOFA_OLIGOprep1.R". I think, should verify
+```{r}
+load("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/mofa_OLIGO_pseudobulked_granges.RData")
+setwd("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc")
+```
+
+```{r}
+dim(bulk_counts)
+dim(opalin_vst)
+
+colnames(bulk_counts)
+colnames(opalin_vst)
+```
+
+create the input list for opalin subtype and oligo bulk data
+```{r}
+mofa_input_opalin <- list(
+  bulk   = as.matrix(bulk_counts),
+  opalin = as.matrix(opalin_vst)
+)
+```
+
+create the moda object and plot the data overview 
+```{r}
+library(MOFA2)
+mofa_opalin <- create_mofa(mofa_input_opalin)
+```
+```{r}
+# plot data overview
+plot_data_overview(mofa_opalin)
+```
+Get data options
+
+```{r}
+data_opts <- get_default_data_options(mofa_opalin)
+data_opts
+```
+```{r}
+# model options
+model_opts <- get_default_model_options(mofa_opalin)
+model_opts$num_factors <- 5
+model_opts
+```
+```{r}
+# training options
+train_opts <- get_default_training_options(mofa_opalin)
+train_opts$convergence_mode <- "slow"
+train_opts$seed <- 42
+
+
+train_opts
+```
+prepare the MOFA model and train
+The model had issues with using less than 10 samples, as recommnded I have reduced my factors down to 2 from 10
+
+```{r}
+mofa_opalin <- prepare_mofa(mofa_opalin,
+data_options     = data_opts,
+model_options = model_opts,
+training_options = train_opts)
+
+library(reticulate)
+library(basilisk)
+
+mofa_opalin <- run_mofa(
+  mofa_opalin,
+  outfile = "mofa_opalin_model.hdf5",
+  use_basilisk = TRUE
+)
+```
+
+Add the metdata into what is called a slot. This is where the MOFA object hold relevant data and indo .Ex input data, meta data, expectations 
+```{r}
+names(mofa_opalin@data)
+dim(mofa_opalin@data$bulk$group1)
+```
+
+
+```{r}
+# sanity check
+stopifnot(all(sort(sample_meta$sample) == sort(unlist(samples_names(mofa_opalin)))))
+
+# add metadata
+samples_metadata(mofa_opalin) <- sample_meta
+```
+
+
+
+
+
+```{r}
+plot_variance_explained(mofa_opalin, max_r2 = 15)
+```
+
+
