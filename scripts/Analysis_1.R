@@ -1,7 +1,8 @@
-load("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/mofa_OLIGO_pseudobulked.RData")
+
 .libPaths(c("/cephfs/volumes/hpc_data_usr/k25093549/eabe5dc4-1fa9-4cdc-b2af-6a4d37d00142/R/R/x86_64-pc-linux-gnu-library/4.5", .libPaths()))
 .libPaths()
 
+load("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/mofa_OLIGO_pseudobulked_20260316.RData")
 library(GenomicRanges)
 
 #convert to granges
@@ -37,7 +38,7 @@ save(bulk_counts, oligo_bulk_data, bulk_meta, sample_mapping,
      opalin_vst, plekhg1_vst, opc_vst,
      bulk_peaks, opalin_peaks, plekhg1_peaks, opc_peaks,
      bulk_gr, opalin_gr, plekhg1_gr, opc_gr,
-     file = "/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/mofa_OLIGO_pseudobulked_granges.RData")
+     file = "/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/mofa_OLIGO_pseudobulked_granges20260316.RData")
 
 
 #find overlaps between peaks for each oligo bulk vs olgio subtype
