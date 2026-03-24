@@ -1,14 +1,19 @@
+library(Seurat)
+#pseudobulking
+
 #loading in new data
 
 # Load the RDS object
 sc_data <- readRDS("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/data_out_LA_dup_rm/081_analysis/001_deseq2/20260227_diff_analysis.rds")
-str(obj, max.level = 2)
+str(sc_data, max.level = 2)
 
 # See which cell types are available
-names(obj$per_cluster)
+names(sc_data$per_cluster)
 
-#load in bulk data (VST)
-oligo_bulk_data <-read.csv("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_bulk/student_data_package/data_in/vst_norm_peak_counts/20260227_oligo_noage_vst_peak_counts_N99464.csv")
+#load in bulk data (VST) (this has been updated, was previosly not vst normalised)
+#oligo_bulk_data <-read.csv("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_bulk/student_data_package/data_in/vst_norm_peak_counts/20260227_oligo_noage_vst_peak_counts_N99464.csv")
+oligo_bulk_data <-read.csv("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_bulk/student_data_package/data_in/vst_norm_peak_counts/20260312_oligo_noage_vst_peak_counts_N99464.csv")
+
 #load in bulk meta data
 bulk_meta <- read.csv("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_bulk/student_data_package/data_in/metadata/sample_metadata_bulk.csv")
 
@@ -89,14 +94,16 @@ colnames(opalin_vst)
 
 save(bulk_counts, oligo_bulk_data, bulk_meta, sample_mapping,
      opalin_vst, plekhg1_vst, opc_vst,
-     file = "/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/mofa_OLIGO_pseudobulked.RData")
-
-load("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/mofa_OLIGO_pseudobulked.RData")
+     file = "/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/mofa_OLIGO_pseudobulked_20260316.RData")
 
 
+data.frame(sample = colnames(bulk_counts),
+           total_counts = colSums(bulk_counts))
 
 
-
+save(bulk_counts, oligo_bulk_data, bulk_meta, sample_mapping,
+     opalin_vst, plekhg1_vst, opc_vst,
+     file = "/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/mofa_OLIGO_pseudobulked_20260316.RData")
 
 
 

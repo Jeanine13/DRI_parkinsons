@@ -8,7 +8,7 @@ library(clusterProfiler)
 library(EnsDb.Hsapiens.v86)
 library(AnnotationDbi)
 
-load("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/mofa_OLIGO_pseudobulked_granges.RData")
+load("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/mofa_OLIGO_pseudobulked_granges20260316.RData")
 
 #genic annotations using chipseeker
 
@@ -328,5 +328,99 @@ ggsave("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package
        plot = dotplot(ekegg_all_sc_unique, showCategory = 30) +
          labs(title = "KEGG Enrichment - All SC unique peaks"),
        width = 10, height = 14, dpi = 150)
+
+
+
+#NEW ANALYSIS, look at GO for peaks unique to every other subset
+# overlaps between all SC subtypes
+out_dir <- "/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/oligo_data_out/truly_unique_peak_dotplots"
+overlaps_opalin_vs_plekhg1  <- findOverlaps(opalin_gr, plekhg1_gr)
+overlaps_opalin_vs_opc      <- findOverlaps(opalin_gr, opc_gr)
+overlaps_plekhg1_vs_opalin  <- findOverlaps(plekhg1_gr, opalin_gr)
+overlaps_plekhg1_vs_opc     <- findOverlaps(plekhg1_gr, opc_gr)
+overlaps_opc_vs_opalin      <- findOverlaps(opc_gr, opalin_gr)
+overlaps_opc_vs_plekhg1     <- findOverlaps(opc_gr, plekhg1_gr)
+
+# bulk vs sc overlaps
+overlaps_opalin  <- findOverlaps(bulk_gr, opalin_gr)
+overlaps_plekhg1 <- findOverlaps(bulk_gr, plekhg1_gr)
+overlaps_opc     <- findOverlaps(bulk_gr, opc_gr)
+
+# truly unique peaks
+opalin_truly_unique <- opalin_peaks[
+  !seq_along(opalin_peaks) %in% unique(c(
+    unique(queryHits(overlaps_opalin_vs_plekhg1)),
+    unique(queryHits(overlaps_opalin_vs_opc)),
+    unique(subjectHits(overlaps_opalin))
+  ))
+]
+
+plekhg1_truly_unique <- plekhg1_peaks[
+  !seq_along(plekhg1_peaks) %in% unique(c(
+    unique(queryHits(overlaps_plekhg1_vs_opalin)),
+    unique(queryHits(overlaps_plekhg1_vs_opc)),
+    unique(subjectHits(overlaps_plekhg1))
+  ))
+]
+
+opc_truly_unique <- opc_peaks[
+  !seq_along(opc_peaks) %in% unique(c(
+    unique(queryHits(overlaps_opc_vs_opalin)),
+    unique(queryHits(overlaps_opc_vs_plekhg1)),
+    unique(subjectHits(overlaps_opc))
+  ))
+]
+
+bulk_truly_unique <- bulk_peaks[
+  !seq_along(bulk_peaks) %in% unique(c(
+    unique(queryHits(overlaps_opalin)),
+    unique(queryHits(overlaps_plekhg1)),
+    unique(queryHits(overlaps_opc))
+  ))
+]
+
+cat("Opalin+ truly unique:", length(opalin_truly_unique), "\n")
+cat("Plekhg1+ truly unique:", length(plekhg1_truly_unique), "\n")
+cat("OPCs truly unique:", length(opc_truly_unique), "\n")
+cat("Bulk truly unique:", length(bulk_truly_unique), "\n")
+
+get_entrez <- function(anno_df, unique_peaks, sep = "_") {
+  if (sep == "_") {
+    key <- paste(anno_df$seqnames, anno_df$start, anno_df$end, sep = "_")
+  } else {
+    key <- paste(gsub("chr", "", anno_df$seqnames), anno_df$start, anno_df$end, sep = "-")
+  }
+  entrez <- unique(anno_df$geneId[key %in% unique_peaks])
+  entrez[!is.na(entrez)]
+}
+
+run_go <- function(entrez, label) {
+  ego <- enrichGO(gene          = entrez,
+                  keyType       = "ENTREZID",
+                  OrgDb         = org.Hs.eg.db,
+                  ont           = "BP",
+                  pAdjustMethod = "BH",
+                  qvalueCutoff  = 0.05,
+                  readable      = TRUE)
+  write.csv(data.frame(ego),
+            file.path(out_dir, paste0("GO_oligo_", label, "_truly_unique.csv")),
+            row.names = FALSE)
+  ggsave(file.path(out_dir, paste0("dotplot_GO_oligo_", label, "_truly_unique.png")),
+         plot = dotplot(ego, showCategory = 30) + labs(title = paste("GO -", label, "truly unique peaks")),
+         width = 10, height = 14, dpi = 150)
+  ego
+}
+
+bulk_entrez    <- get_entrez(bulk_anno_df,    bulk_truly_unique,    sep = "_")
+opalin_entrez  <- get_entrez(opalin_anno_df,  opalin_truly_unique,  sep = "-")
+plekhg1_entrez <- get_entrez(plekhg1_anno_df, plekhg1_truly_unique, sep = "-")
+opc_entrez     <- get_entrez(opc_anno_df,     opc_truly_unique,     sep = "-")
+
+ego_bulk    <- run_go(bulk_entrez,    "bulk")
+ego_opalin  <- run_go(opalin_entrez,  "opalin")
+ego_plekhg1 <- run_go(plekhg1_entrez, "plekhg1")
+ego_opc     <- run_go(opc_entrez,     "opc")
+
+
 
 

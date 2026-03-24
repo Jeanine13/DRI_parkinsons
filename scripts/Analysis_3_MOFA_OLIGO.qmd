@@ -6,8 +6,8 @@ editor: visual
 
 Pseudobulked data is loaded. Script used for this was the "MOFA_OLIGOprep1.R". I think, should verify
 ```{r}
-load("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/mofa_OLIGO_pseudobulked_granges.RData")
-setwd("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc")
+load("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/mofa_OLIGO_pseudobulked_granges20260316.RData")
+
 ```
 
 ```{r}
@@ -24,23 +24,18 @@ Selecting the top 5000 highly variable features (though this feels low)
 bulk_vars       <- apply(bulk_counts, 1, var)
 bulk_top_idx    <- head(order(bulk_vars, decreasing = TRUE), 5000)
 bulk_hvf        <- bulk_counts[bulk_top_idx, ]
-bulk_hvf        <- bulk_hvf - rowMeans(bulk_hvf)
+
 
 # opalin
 opalin_vars     <- apply(opalin_vst, 1, var)
 opalin_top_idx  <- head(order(opalin_vars, decreasing = TRUE), 5000)
 opalin_hvf      <- opalin_vst[opalin_top_idx, ]
-opalin_hvf      <- opalin_hvf - rowMeans(opalin_hvf)
+
 
 dim(bulk_hvf)
 dim(opalin_hvf)
 
 ```
-
-
-
-
-
 
 
 
@@ -61,8 +56,7 @@ library(MOFA2)
 mofa_opalin <- create_mofa(mofa_input_opalin)
 ```
 ```{r}
-# plot data overview
-plot_data_overview(mofa_opalin)
+
 ```
 Get data options
 
@@ -78,7 +72,9 @@ model_opts
 ```
 ```{r}
 # training options
+
 train_opts <- get_default_training_options(mofa_opalin)
+train_opts$maxiter <- 2000
 train_opts$convergence_mode <- "slow"
 train_opts$seed <- 42
 
@@ -99,7 +95,7 @@ library(basilisk)
 
 mofa_opalin <- run_mofa(
   mofa_opalin,
-  outfile = "mofa_opalin_model.hdf5",
+  outfile = "mofa_opalin_modelv4.hdf5",
   use_basilisk = TRUE
 )
 ```
@@ -112,11 +108,19 @@ dim(mofa_opalin@data$bulk$group1)
 
 
 ```{r}
+
 # sanity check
 stopifnot(all(sort(sample_meta$sample) == sort(unlist(samples_names(mofa_opalin)))))
 
 # add metadata
-samples_metadata(mofa_opalin) <- sample_meta
+#samples_metadata(mofa_opalin) <- sample_meta
+
+sample_meta <- data.frame(
+  sample    = c("PD1222", "PD1231", "PD726", "PD833", "PD936",
+                "PDC167", "PDC184", "PDC197", "PDC87"),
+  condition = c("PD", "PD", "PD", "PD", "PD",
+                "Control", "Control", "Control", "Control")
+)
 ```
 
 ```{r}
@@ -137,6 +141,69 @@ Need to do some checks, looking at an explanation for the issues with Factor 1
 colSums(bulk_counts)
 colSums(opalin_vst)
 ```
+
+Reloading in the model to produce figure ( 2 views, Opalin vs Bulk oligo)
+```{r}
+library(MOFA2)
+model <- load_model("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/data_out/mofa_opalin_model.hdf5")
+
+model
+get_dimensions(model)
+```
+Plot 
+```{r}
+plot_factor_cor(model)
+
+plot_variance_explained(model, max_r2 = 15)
+```
+TEST 2 OPALIN+ AND BULK (2000 PEAKS)
+
+```{r}
+# bulk
+bulk_vars    <- apply(bulk_counts, 1, var)
+bulk_top_idx <- head(order(bulk_vars, decreasing = TRUE), 2000)
+bulk_hvf     <- bulk_counts[bulk_top_idx, ]
+
+# opalin
+opalin_vars    <- apply(opalin_vst, 1, var)
+opalin_top_idx <- head(order(opalin_vars, decreasing = TRUE), 2000)
+opalin_hvf     <- opalin_vst[opalin_top_idx, ]
+
+# recreate MOFA object
+mofa_input_opalin <- list(
+  bulk   = as.matrix(bulk_hvf),
+  opalin = as.matrix(opalin_hvf)
+)
+
+mofa_opalin <- create_mofa(mofa_input_opalin)
+
+data_opts  <- get_default_data_options(mofa_opalin)
+model_opts <- get_default_model_options(mofa_opalin)
+model_opts$num_factors <- 3
+
+train_opts <- get_default_training_options(mofa_opalin)
+train_opts$convergence_mode <- "slow"
+train_opts$seed <- 42
+
+mofa_opalin <- prepare_mofa(mofa_opalin,
+                            data_options     = data_opts,
+                            model_options    = model_opts,
+                            training_options = train_opts)
+
+mofa_opalin <- run_mofa(mofa_opalin,
+                        outfile      = "mofa_opalin_model.hdf5",
+                        use_basilisk = TRUE)
+
+
+plot_factor_cor(mofa_opalin)
+plot_variance_explained(mofa_opalin, max_r2 = 15)
+```
+
+
+
+
+
+
 
 
 
@@ -184,7 +251,7 @@ plot_data_overview(mofa_all)
 data_opts_all  <- get_default_data_options(mofa_all)
 
 model_opts_all <- get_default_model_options(mofa_all)
-model_opts_all$num_factors <- 2
+model_opts_all$num_factors <- 9
 
 train_opts_all <- get_default_training_options(mofa_all)
 train_opts_all$convergence_mode <- "slow"
@@ -199,5 +266,10 @@ mofa_all <- prepare_mofa(mofa_all,
 mofa_all <- run_mofa(mofa_all,
                      outfile      = "mofa_all_model.hdf5",
                      use_basilisk = TRUE)
+```
+```{r}
+plot_factor_cor(mofa_all)
+
+mofaplot_variance_explained(mofa_all, max_r2 = 15)
 ```
 

@@ -1,1 +1,18 @@
-saved_objects/*.RData
+
+# analysis outputs
+
+*.RData
+*.rds
+
+#mofa models
+
+*.hdf5
+*.h5
+
+# Images / plots
+*.png
+*.jpg
+*.pdf
+
+# Keep scripts only
+!scripts/
