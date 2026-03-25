@@ -1,6 +1,10 @@
 
 #GO FOR SC DATA RE-CALLED ON CLUSTERS
+#chip seeker annoates each peak with genomic location and nearest gene 
+#annoate peak sssigns each peak a genic location and add_gene_symbols adds
+# human readable gene symbols as TxDb only gives EntrezIDs. Uses ensDb to add gene names
 
+load("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/mofa_OLIGO_clusterpeaks_granges_vst.RData")
 
 library(ChIPseeker)
 library(TxDb.Hsapiens.UCSC.hg38.knownGene)
@@ -36,8 +40,58 @@ plekhg1_anno_cp <- add_gene_symbols(plekhg1_anno_cp)
 opc_anno_cp     <- add_gene_symbols(opc_anno_cp)
 
 
+head(opalin_anno_cp[, c("seqnames", "start", "end", "annotation", "GENENAME")])
+
+colnames(opalin_anno_cp)
+head(opalin_anno_cp[, c("seqnames", "start", "end", "annotation", "GENENAME.x")])
 
 
+#GO ENRICHMENT 
+library(clusterProfiler)
+library(ggplot2)
+
+out_dir <- "/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/oligo_data_out"
+
+# function to get entrez IDs from unique SC peaks
+get_entrez_sc <- function(anno_df, unique_peaks) {
+  key <- paste(gsub("chr", "", anno_df$seqnames), anno_df$start, anno_df$end, sep = "-")
+  entrez <- unique(anno_df$geneId[key %in% unique_peaks])
+  entrez[!is.na(entrez)]
+}
+
+# extract entrez IDs for SC unique peaks
+opalin_unique_entrez  <- get_entrez_sc(opalin_anno_cp,  opalin_unique_sc)
+plekhg1_unique_entrez <- get_entrez_sc(plekhg1_anno_cp, plekhg1_unique_sc)
+opc_unique_entrez     <- get_entrez_sc(opc_anno_cp,     opc_unique_sc)
+
+cat("Opalin+ unique genes:", length(opalin_unique_entrez), "\n")
+cat("Plekhg1+ unique genes:", length(plekhg1_unique_entrez), "\n")
+cat("OPC unique genes:", length(opc_unique_entrez), "\n")
 
 
+# run GO enrichment function
+run_go <- function(entrez, label) {
+  ego <- enrichGO(gene          = entrez,
+                  keyType       = "ENTREZID",
+                  OrgDb         = org.Hs.eg.db,
+                  ont           = "BP",
+                  pAdjustMethod = "BH",
+                  qvalueCutoff  = 0.05,
+                  readable      = TRUE)
+  
+  write.csv(data.frame(ego),
+            file.path(out_dir, paste0("GO_clusterpeaks_", label, "_sc_unique.csv")),
+            row.names = FALSE)
+  
+  ggsave(file.path(out_dir, paste0("dotplot_GO_clusterpeaks_", label, "_sc_unique.png")),
+         plot = dotplot(ego, showCategory = 30) +
+           labs(title = paste("GO -", label, "SC unique peaks")),
+         width = 10, height = 14, dpi = 150)
+  
+  ego
+}
+
+ego_opalin  <- run_go(opalin_unique_entrez,  "opalin")
+ego_plekhg1 <- run_go(plekhg1_unique_entrez, "plekhg1")
+ego_opc     <- run_go(opc_unique_entrez,     "opc")
 

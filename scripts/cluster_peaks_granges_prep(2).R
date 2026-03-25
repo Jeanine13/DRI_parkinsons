@@ -1,7 +1,13 @@
-load("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/mofa_OLIGO_clusterpeaks_pseudobulked.RData")
+#make granges objects to analyse peaks overlaps between subtypes
+
+.libPaths(c("/cephfs/volumes/hpc_data_usr/k25093549/eabe5dc4-1fa9-4cdc-b2af-6a4d37d00142/R/R/x86_64-pc-linux-gnu-library/4.5", .libPaths()))
+
+load("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/mofa_OLIGO_clusterpeaks_pseudobulked_vst.RData")
 
 library(GenomicRanges)
-#create granges objects
+library(GenomeInfoDb)
+#create Grnages objects
+
 # bulk peaks (chr1_start_end format)
 bulk_peaks <- rownames(bulk_counts)
 bulk_gr <- GRanges(
@@ -23,45 +29,29 @@ make_gr <- function(peaks) {
   )
 }
 
-opalin_peaks  <- rownames(opalin_pseudo_norm)
-plekhg1_peaks <- rownames(plekhg1_pseudo_norm)
-opc_peaks     <- rownames(opc_pseudo_norm)
+opalin_peaks  <- rownames(opalin_vst)
+plekhg1_peaks <- rownames(plekhg1_vst)
+opc_peaks     <- rownames(opc_vst)
 
-opalin_gr  <- mahead(bulk_gr)
-head(opalin_gr)ke_gr(opalin_peaks)
+opalin_gr  <- make_gr(opalin_peaks)
 plekhg1_gr <- make_gr(plekhg1_peaks)
 opc_gr     <- make_gr(opc_peaks)
 
-# check
-opalin_gr
-bulk_gr
-library(GenomeInfoDb)
-
-seqlevelsStyle(bulk_gr) <- "UCSC"
+# fix chromosome naming
+seqlevelsStyle(bulk_gr)    <- "UCSC"
 seqlevelsStyle(opalin_gr)  <- "UCSC"
 seqlevelsStyle(plekhg1_gr) <- "UCSC"
 seqlevelsStyle(opc_gr)     <- "UCSC"
 
 #find overlaps
-overlaps_opalin  <- findOverlaps(bulk_gr, opalin_gr, ignore.strand = TRUE)
-overlaps_plekhg1 <- findOverlaps(bulk_gr, plekhg1_gr, ignore.strand = TRUE)
-overlaps_opc     <- findOverlaps(bulk_gr, opc_gr, ignore.strand = TRUE)
+overlaps_opalin  <- suppressWarnings(findOverlaps(bulk_gr, opalin_gr,  ignore.strand = TRUE))
+overlaps_plekhg1 <- suppressWarnings(findOverlaps(bulk_gr, plekhg1_gr, ignore.strand = TRUE))
+overlaps_opc     <- suppressWarnings(findOverlaps(bulk_gr, opc_gr,     ignore.strand = TRUE))
 
 # classify peaks
 opalin_shared      <- bulk_peaks[unique(queryHits(overlaps_opalin))]
 opalin_unique_bulk <- bulk_peaks[!seq_along(bulk_peaks) %in% queryHits(overlaps_opalin)]
 opalin_unique_sc   <- opalin_peaks[!seq_along(opalin_peaks) %in% subjectHits(overlaps_opalin)]
-
-
-
-# rerun overlaps
-overlaps_opalin  <- findOverlaps(bulk_gr, opalin_gr)
-overlaps_plekhg1 <- findOverlaps(bulk_gr, plekhg1_gr)
-overlaps_opc     <- findOverlaps(bulk_gr, opc_gr)
-overlaps_opalin <- suppressWarnings(findOverlaps(bulk_gr, opalin_gr, ignore.strand = TRUE))
-length(overlaps_opalin)
-
-
 
 plekhg1_shared      <- bulk_peaks[unique(queryHits(overlaps_plekhg1))]
 plekhg1_unique_bulk <- bulk_peaks[!seq_along(bulk_peaks) %in% queryHits(overlaps_plekhg1)]
@@ -82,47 +72,16 @@ cat("OPCs     - shared:", length(opc_shared),
     "| bulk unique:", length(opc_unique_bulk),
     "| sc unique:", length(opc_unique_sc), "\n")
 
+#save in saved_objects
 save(bulk_counts, oligo_bulk_data, bulk_meta, sample_mapping,
-     opalin_pseudo_norm, plekhg1_pseudo_norm, opc_pseudo_norm,
+     opalin_vst, plekhg1_vst, opc_vst,
+     opalin_pseudo, plekhg1_pseudo, opc_pseudo,
      bulk_peaks, opalin_peaks, plekhg1_peaks, opc_peaks,
      bulk_gr, opalin_gr, plekhg1_gr, opc_gr,
      overlaps_opalin, overlaps_plekhg1, overlaps_opc,
      opalin_shared, opalin_unique_bulk, opalin_unique_sc,
      plekhg1_shared, plekhg1_unique_bulk, plekhg1_unique_sc,
      opc_shared, opc_unique_bulk, opc_unique_sc,
-     file = "/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/mofa_OLIGO_clusterpeaks_granges.RData")
-
-#VISUALISATION
-
-library(eulerr)
-library(ggplot2)
-
-fit_opalin <- euler(c(
-  "Bulk"         = length(opalin_unique_bulk),
-  "Opalin+"      = length(opalin_unique_sc),
-  "Bulk&Opalin+" = length(opalin_shared)
-))
-
-fit_plekhg1 <- euler(c(
-  "Bulk"          = length(plekhg1_unique_bulk),
-  "Plekhg1+"      = length(plekhg1_unique_sc),
-  "Bulk&Plekhg1+" = length(plekhg1_shared)
-))
-
-fit_opc <- euler(c(
-  "Bulk"      = length(opc_unique_bulk),
-  "OPCs"      = length(opc_unique_sc),
-  "Bulk&OPCs" = length(opc_shared)
-))
-
-plot(fit_opalin,  quantities = TRUE, fills = c("steelblue", "#E69F00"), edges = FALSE, main = "Bulk vs Opalin+")
-plot(fit_plekhg1, quantities = TRUE, fills = c("steelblue", "#009E73"), edges = FALSE, main = "Bulk vs Plekhg1+")
-plot(fit_opc,     quantities = TRUE, fills = c("steelblue", "#CC79A7"), edges = FALSE, main = "Bulk vs OPCs")
-
-
-
-
-
-
+     file = "/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/mofa_OLIGO_clusterpeaks_granges_vst.RData")
 
 

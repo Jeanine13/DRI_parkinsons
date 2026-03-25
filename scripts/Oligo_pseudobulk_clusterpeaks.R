@@ -1,7 +1,12 @@
 .libPaths(c("/cephfs/volumes/hpc_data_usr/k25093549/eabe5dc4-1fa9-4cdc-b2af-6a4d37d00142/R/R/x86_64-pc-linux-gnu-library/4.5", .libPaths()))
 
+#PSEUDOLBULKING NEW SC DATA AND DESEQ2 NORMALISATION
+
+
 library(Seurat)
 library(Matrix)
+library(DESeq2)
+
 # load cluster-specific SC data
 opalin_sc_data  <- readRDS("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/data_in/singlecell_data/cluster_1_seurat_oligo_opalin.rds")
 plekhg1_sc_data <- readRDS("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/data_in/singlecell_data/cluster_5_norm_oligo_plekhg1.rds")
@@ -13,6 +18,7 @@ oligo_bulk_data <- read.csv("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_bu
 # load bulk metadata
 bulk_meta <- read.csv("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_bulk/student_data_package/data_in/metadata/sample_metadata_bulk.csv")
 
+#sample mapping 
 sample_mapping <- data.frame(
   pid       = c("PD1222", "PD1231", "PD726", "PD833", "PD936",
                 "PDC167", "PDC184", "PDC197", "PDC87"),
@@ -27,6 +33,7 @@ sample_mapping$bulk_sample <- oligo_bulk_meta$sample[match(sample_mapping$pid, o
 
 print(sample_mapping)
 
+#extract bulk count matrix 
 
 bulk_counts <- oligo_bulk_data[, grepl("^IGF", colnames(oligo_bulk_data))]
 rownames(bulk_counts) <- paste(oligo_bulk_data$seqnames, oligo_bulk_data$start, oligo_bulk_data$end, sep = "_")
@@ -37,53 +44,100 @@ bulk_counts <- bulk_counts[, sort(colnames(bulk_counts))]
 dim(bulk_counts)
 colSums(bulk_counts)
 
-# extract normalised data layer from each subtype
-opalin_norm  <- GetAssayData(opalin_sc_data,  assay = "peaks_cluster", layer = "data")
-plekhg1_norm <- GetAssayData(plekhg1_sc_data, assay = "peaks_cluster", layer = "data")
-opc_norm     <- GetAssayData(opc_sc_data,     assay = "peaks_cluster", layer = "data")
+# extract RAW COUNTS FROM COUNTS LAYER OF SC data
+opalin_raw  <- GetAssayData(opalin_sc_data,  assay = "peaks_cluster", layer = "counts")
+plekhg1_raw <- GetAssayData(plekhg1_sc_data, assay = "peaks_cluster", layer = "counts")
+opc_raw     <- GetAssayData(opc_sc_data,     assay = "peaks_cluster", layer = "counts")
 
-# check cell counts per donor
-cat("Opalin+ cells per donor:\n")
-print(table(gsub("_.*", "", colnames(opalin_norm))))
-cat("Plekhg1+ cells per donor:\n")
-print(table(gsub("_.*", "", colnames(plekhg1_norm))))
-cat("OPC cells per donor:\n")
-print(table(gsub("_.*", "", colnames(opc_norm))))
-
-# pseudobulk by averaging across cells per donor
-pseudobulk_mean <- function(norm_mat, sample_mapping) {
-  cell_samples <- gsub("_.*", "", colnames(norm_mat))
+#pseudobulk by summing counts per sample
+pseudobulk_sum <- function(count_mat, sample_mapping) {
+  cell_samples <- gsub("_.*", "", colnames(count_mat))
   pseudo <- sapply(unique(cell_samples), function(s) {
     cells <- cell_samples == s
-    rowMeans(norm_mat[, cells, drop = FALSE])
+    rowSums(count_mat[, cells, drop = FALSE])
   })
-  # drop IGF136865
   pseudo <- pseudo[, colnames(pseudo) != "IGF136865"]
-  # rename to PID
   colnames(pseudo) <- sample_mapping$pid[match(colnames(pseudo), sample_mapping$sc_sample)]
-  # sort columns
   pseudo[, sort(colnames(pseudo))]
 }
 
-opalin_pseudo_norm  <- pseudobulk_mean(opalin_norm,  sample_mapping)
-plekhg1_pseudo_norm <- pseudobulk_mean(plekhg1_norm, sample_mapping)
-opc_pseudo_norm     <- pseudobulk_mean(opc_norm,     sample_mapping)
+opalin_pseudo  <- pseudobulk_sum(opalin_raw,  sample_mapping)
+plekhg1_pseudo <- pseudobulk_sum(plekhg1_raw, sample_mapping)
+opc_pseudo     <- pseudobulk_sum(opc_raw,     sample_mapping)
 
-# check dimensions and column sums
-cat("Opalin+ dimensions:", dim(opalin_pseudo_norm), "\n")
-cat("Plekhg1+ dimensions:", dim(plekhg1_pseudo_norm), "\n")
-cat("OPC dimensions:", dim(opc_pseudo_norm), "\n")
 
-colSums(opalin_pseudo_norm)
-colSums(plekhg1_pseudo_norm)
-colSums(opc_pseudo_norm)
 
-# check column names match
-colnames(bulk_counts)
-colnames(opalin_pseudo_norm)
-colnames(plekhg1_pseudo_norm)
-colnames(opc_pseudo_norm)
+# check cell counts per sample
+
+cat("Opalin+ dimensions:", dim(opalin_pseudo), "\n")
+cat("Plekhg1+ dimensions:", dim(plekhg1_pseudo), "\n")
+cat("OPC dimensions:", dim(opc_pseudo), "\n")
+
+colSums(opalin_pseudo)
+colSums(plekhg1_pseudo)
+colSums(opc_pseudo)
+
+
+
+#DESeq2 VST normalisation
+
+vst_normalise <- function(pseudo_mat) {
+  # round to integers for DESeq2
+  pseudo_mat <- round(as.matrix(pseudo_mat))
+  
+  # create DESeq2 object
+  dds <- DESeqDataSetFromMatrix(
+    countData = pseudo_mat,
+    colData   = data.frame(
+      condition = rep("sample", ncol(pseudo_mat)),
+      row.names = colnames(pseudo_mat)
+    ),
+    design = ~ 1
+  )
+  
+  # estimate size factors first
+  dds <- estimateSizeFactors(dds)
+  
+  # VST normalisation
+  vst_mat <- assay(vst(dds, blind = TRUE))
+  
+  return(vst_mat)
+}
+
+#filter zero variance peaks after vst
+filter_zero_var <- function(vst_mat) {
+  keep <- apply(vst_mat, 1, var) > 0
+  vst_mat[keep, , drop = FALSE]
+}
+
+opalin_vst  <- filter_zero_var(vst_normalise(opalin_pseudo))
+plekhg1_vst <- filter_zero_var(vst_normalise(plekhg1_pseudo))
+opc_vst     <- filter_zero_var(vst_normalise(opc_pseudo))
+
+
+dim(opalin_vst)
+summary(as.vector(opalin_vst))
+head(opalin_vst[, 1:3])
+
+
+#check peaks removed
+tmp_opalin <- vst_normalise(opalin_pseudo)
+sum(apply(tmp_opalin, 1, var) == 0)
+
+opalin_vst <- filter_zero_var(tmp_opalin)
+
+colnames(opalin_vst)
+colnames(plekhg1_vst)
+colnames(opc_vst)
+
+colSums(opalin_vst)
+colSums(plekhg1_vst)
+colSums(opc_vst)
 
 save(bulk_counts, oligo_bulk_data, bulk_meta, sample_mapping,
-     opalin_pseudo_norm, plekhg1_pseudo_norm, opc_pseudo_norm,
-     file = "/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/mofa_OLIGO_clusterpeaks_pseudobulked.RData")
+     opalin_vst, plekhg1_vst, opc_vst,
+     opalin_pseudo, plekhg1_pseudo, opc_pseudo,
+     file = "/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/mofa_OLIGO_clusterpeaks_pseudobulked_vst.RData")
+
+
+
