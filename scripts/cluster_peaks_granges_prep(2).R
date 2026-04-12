@@ -242,3 +242,17 @@ upset(upset_df_full,
       sets.x.label    = "Total peaks per dataset")
 
 
+
+
+
+#confimring data
+
+cat("Opalin+  - shared:", length(opalin_shared),
+    "| bulk unique:", length(opalin_unique_bulk),
+    "| sc unique:", length(opalin_unique_sc), "\n")
+cat("Plekhg1+ - shared:", length(plekhg1_shared),
+    "| bulk unique:", length(plekhg1_unique_bulk),
+    "| sc unique:", length(plekhg1_unique_sc), "\n")
+cat("OPCs     - shared:", length(opc_shared),
+    "| bulk unique:", length(opc_unique_bulk),
+    "| sc unique:", length(opc_unique_sc), "\n")
