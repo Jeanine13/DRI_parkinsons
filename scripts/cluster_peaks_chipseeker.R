@@ -100,6 +100,6 @@ save(
   file = file.path(mofa_out_dir, "chipseeker_annotations_all_datasets.RData")
 )
 
-cat("\nChIPseeker annotation complete and saved.\n")
+
 cat("Saved to:", file.path(mofa_out_dir, "chipseeker_annotations_all_datasets.RData"), "\n")
 
