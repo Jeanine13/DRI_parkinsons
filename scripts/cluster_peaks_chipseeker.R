@@ -17,9 +17,7 @@ load("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/j
 
 library(ChIPseeker)
 library(TxDb.Hsapiens.UCSC.hg38.knownGene)
-library(EnsDb.Hsapiens.v86)
-library(AnnotationDbi)
-library(dplyr)
+library(org.Hs.eg.db)
 library(GenomeInfoDb)
 
 txdb <- TxDb.Hsapiens.UCSC.hg38.knownGene
@@ -30,63 +28,23 @@ seqlevelsStyle(opalin_gr)  <- "UCSC"
 seqlevelsStyle(plekhg1_gr) <- "UCSC"
 seqlevelsStyle(opc_gr)     <- "UCSC"
 
-# ANNOTATE ALL PEAKS WITH GENIC LOCATIONS AND NEAREST GENE (ENTREZID)
+# ANNOTATE ALL PEAKS WITH GENIC LOCATIONS AND GENE ANNOTATION
+# annoDb = "org.Hs.eg.db" ADDS GENE ANNOTATION FIELDS SUCH AS SYMBOL AND GENENAME
 bulk_anno_df <- as.data.frame(
-  annotatePeak(
-    bulk_gr,
-    tssRegion = c(-3000, 3000),
-    TxDb = txdb,
-    annoDb = "org.Hs.eg.db"
-  )
+  annotatePeak(bulk_gr, tssRegion = c(-3000, 3000), TxDb = txdb, annoDb = "org.Hs.eg.db")
 )
 
 opalin_anno_cp <- as.data.frame(
-  annotatePeak(
-    opalin_gr,
-    tssRegion = c(-3000, 3000),
-    TxDb = txdb,
-    annoDb = "org.Hs.eg.db"
-  )
+  annotatePeak(opalin_gr, tssRegion = c(-3000, 3000), TxDb = txdb, annoDb = "org.Hs.eg.db")
 )
 
 plekhg1_anno_cp <- as.data.frame(
-  annotatePeak(
-    plekhg1_gr,
-    tssRegion = c(-3000, 3000),
-    TxDb = txdb,
-    annoDb = "org.Hs.eg.db"
-  )
+  annotatePeak(plekhg1_gr, tssRegion = c(-3000, 3000), TxDb = txdb, annoDb = "org.Hs.eg.db")
 )
 
 opc_anno_cp <- as.data.frame(
-  annotatePeak(
-    opc_gr,
-    tssRegion = c(-3000, 3000),
-    TxDb = txdb,
-    annoDb = "org.Hs.eg.db"
-  )
+  annotatePeak(opc_gr, tssRegion = c(-3000, 3000), TxDb = txdb, annoDb = "org.Hs.eg.db")
 )
-
-# ADD HUMAN-READABLE GENE SYMBOLS AND GENE NAMES USING ENSDB
-add_gene_symbols <- function(anno_df) {
-  annotations_edb <- AnnotationDbi::select(
-    EnsDb.Hsapiens.v86,
-    keys = as.character(anno_df$geneId),
-    columns = c("SYMBOL", "GENENAME"),
-    keytype = "ENTREZID"
-  )
-  
-  annotations_edb$ENTREZID <- as.character(annotations_edb$ENTREZID)
-  annotations_edb <- annotations_edb[!duplicated(annotations_edb$ENTREZID), ]
-  
-  anno_df %>%
-    left_join(annotations_edb, by = c("geneId" = "ENTREZID"))
-}
-
-bulk_anno_df    <- add_gene_symbols(bulk_anno_df)
-opalin_anno_cp  <- add_gene_symbols(opalin_anno_cp)
-plekhg1_anno_cp <- add_gene_symbols(plekhg1_anno_cp)
-opc_anno_cp     <- add_gene_symbols(opc_anno_cp)
 
 # CREATE PEAK KEYS FOR MERGING WITH MOFA WEIGHTS
 # BULK PEAKS ARE IN chr1_start_end FORMAT
@@ -125,7 +83,11 @@ cat("Opalin annotation peaks:", nrow(opalin_anno_cp), "\n")
 cat("Plekhg1 annotation peaks:", nrow(plekhg1_anno_cp), "\n")
 cat("OPC annotation peaks:", nrow(opc_anno_cp), "\n")
 
-# OPTIONAL PREVIEW OF KEY COLUMNS
+# CHECK COLUMN NAMES
+cat("\nColumn names in opalin_anno_cp:\n")
+print(colnames(opalin_anno_cp))
+
+# PREVIEW KEY COLUMNS
 cat("\nPreview of Opalin annotation:\n")
 print(head(opalin_anno_cp[, c("seqnames", "start", "end", "annotation", "SYMBOL", "GENENAME", "peak_key")]))
 
@@ -139,5 +101,5 @@ save(
 )
 
 cat("\nChIPseeker annotation complete and saved.\n")
-cat("Saved file:", file.path(mofa_out_dir, "chipseeker_annotations_all_datasets.RData"), "\n")
+cat("Saved to:", file.path(mofa_out_dir, "chipseeker_annotations_all_datasets.RData"), "\n")
 
