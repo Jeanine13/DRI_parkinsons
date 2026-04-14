@@ -11,7 +11,7 @@ library(rGREAT)
 library(ggplot2)
 library(org.Hs.eg.db)
 
-# DO NOT RELOAD GRANGES RDATA HERE - IT WOULD OVERWRITE ANNOTATIONS FROM CHIPSEEKER SCRIPT
+# DO NOT RELOAD GRANGES RDATA HERE (IT WOULD OVERWRITE ANNOTATIONS FROM CHIPSEEKER SCRIPT)
 # INSTEAD VERIFY THE REQUIRED OBJECTS ARE IN MEMORY
 stopifnot(exists("opalin_anno_cp"))
 stopifnot(exists("plekhg1_anno_cp"))
@@ -184,7 +184,7 @@ run_great_factor <- function(weights_df, view, factor_num, background_gr, label,
                      gene_sets  = "GO:BP",
                      tss_source = "TxDb.Hsapiens.UCSC.hg38.knownGene",
                      background = background_gr,
-                     cores      = 1)
+                     cores      = 8)
   
   tb     <- getEnrichmentTable(great_res)
   tb_sig <- tb[tb$p_adjust < 0.05, ]
@@ -302,6 +302,15 @@ cat("Factor 4 bulk positive:", nrow(data.frame(ego_f4_bulk_pos)), "terms\n")
 cat("Factor 4 bulk negative:", nrow(data.frame(ego_f4_bulk_neg)), "terms\n")
 cat("Factor 4 opalin positive:", nrow(data.frame(ego_f4_opalin_pos)), "terms\n")
 cat("Factor 4 opalin negative:", nrow(data.frame(ego_f4_opalin_neg)), "terms\n")
+
+
+opalin_weights_f2$feature <- as.character(opalin_weights_f2$feature)
+opalin_weights_f3$feature <- as.character(opalin_weights_f3$feature)
+opalin_weights_f4$feature <- as.character(opalin_weights_f4$feature)
+bulk_weights_f1$feature   <- as.character(bulk_weights_f1$feature)
+bulk_weights_f4$feature   <- as.character(bulk_weights_f4$feature)
+bulk_weights_f5$feature   <- as.character(bulk_weights_f5$feature)
+opalin_weights_f6$feature <- as.character(opalin_weights_f6$feature)
 
 # rGREAT ENRICHMENT - OPALIN MODEL
 great_f1_bulk_pos   <- run_great_factor(bulk_weights_f1,   "bulk",   1, bulk_consensus, "opalin_factor1_bulk_positive",   mode = "positive")
@@ -429,6 +438,9 @@ bulk_weights_opc_f5 <- get_weights_opc(5, "bulk")
 # VERIFY OPC WEIGHTS MATCH ANNOTATION
 cat("OPC weights in annotation:", sum(opc_weights_f2$feature %in% opc_anno_cp$peak_key), "/ 5000\n")
 
+opc_anno_cp$peak_key <- paste(gsub("chr", "", opc_anno_cp$seqnames),
+                              opc_anno_cp$start,
+                              opc_anno_cp$end, sep = "-")
 # TOP 20 ANNOTATED PEAKS - OPC MODEL
 get_top20(bulk_weights_opc_f1, bulk_anno_df, "peak_key", "GENENAME",   "opc_factor1_bulk")
 get_top20(opc_weights_f2,      opc_anno_cp,  "peak_key", "GENENAME.x", "opc_factor2_opc")
@@ -470,3 +482,126 @@ great_opc_f5 <- run_great_factor(bulk_weights_opc_f5, "bulk", 5, bulk_consensus,
 saveRDS(mofa_opc_vst, file.path(mofa_out_dir, "mofa_opc_vst_object.rds"))
 
 cat("All results saved to:", mofa_out_dir, "\n")
+
+
+# MODEL 4: 4-VIEW MOFA (BULK + ALL THREE SC SUBTYPES)
+mofa_input_4view <- list(
+  bulk    = as.matrix(bulk_hvf),
+  opalin  = as.matrix(opalin_hvf),
+  plekhg1 = as.matrix(plekhg1_hvf),
+  opc     = as.matrix(opc_hvf)
+)
+
+mofa_4view_vst <- create_mofa(mofa_input_4view)
+
+model_opts             <- get_default_model_options(mofa_4view_vst)
+model_opts$num_factors <- 9
+train_opts             <- get_default_training_options(mofa_4view_vst)
+train_opts$convergence_mode <- "slow"
+train_opts$seed        <- 42
+
+mofa_4view_vst <- prepare_mofa(mofa_4view_vst,
+                               data_options     = get_default_data_options(mofa_4view_vst),
+                               model_options    = model_opts,
+                               training_options = train_opts)
+
+mofa_4view_vst <- run_mofa(mofa_4view_vst,
+                           outfile      = file.path(mofa_out_dir, "mofa_4view_newsc.hdf5"),
+                           use_basilisk = TRUE)
+
+samples_metadata(mofa_4view_vst) <- sample_meta
+
+plot_variance_explained(mofa_4view_vst, max_r2 = 15)
+plot_factor_cor(mofa_4view_vst)
+plot_factor(mofa_4view_vst, factors = 1:7, color_by = "condition")
+
+# RECALCULATE OPC HVF FROM CURRENT opc_vst
+opc_vars    <- apply(opc_vst, 1, var)
+opc_top_idx <- head(order(opc_vars, decreasing = TRUE), 5000)
+opc_hvf     <- opc_vst[opc_top_idx, ]
+
+# VERIFY
+cat("OPC HVF peaks in annotation:", sum(rownames(opc_hvf) %in% opc_anno_cp$peak_key), "\n")
+cat("OPC HVF peaks in opc_vst:", sum(rownames(opc_hvf) %in% rownames(opc_vst)), "\n")
+
+# EXTRACT 4-VIEW MODEL WEIGHTS
+get_weights_4view <- function(factor_num, view) {
+  w <- get_weights(mofa_4view_vst, views = view, factors = factor_num, as.data.frame = TRUE)
+  w$feature <- as.character(w$feature)
+  w
+}
+
+# FACTOR 1 - SC SHARED (ALL THREE SC SUBTYPES)
+opalin_weights_4v_f1  <- get_weights_4view(1, "opalin")
+plekhg1_weights_4v_f1 <- get_weights_4view(1, "plekhg1")
+opc_weights_4v_f1     <- get_weights_4view(1, "opc")
+
+# FACTOR 2 - BULK SPECIFIC
+bulk_weights_4v_f2 <- get_weights_4view(2, "bulk")
+
+# FACTOR 3 - OPALIN AND OPC SHARED
+opalin_weights_4v_f3 <- get_weights_4view(3, "opalin")
+opc_weights_4v_f3    <- get_weights_4view(3, "opc")
+
+# FACTOR 4 - BULK SPECIFIC
+bulk_weights_4v_f4 <- get_weights_4view(4, "bulk")
+
+# TOP 20 ANNOTATED PEAKS
+get_top20(opalin_weights_4v_f1,  opalin_anno_cp,  "peak_key", "GENENAME.x", "4view_factor1_opalin")
+get_top20(plekhg1_weights_4v_f1, plekhg1_anno_cp, "peak_key", "GENENAME.x", "4view_factor1_plekhg1")
+get_top20(opc_weights_4v_f1,     opc_anno_cp,     "peak_key", "GENENAME.x", "4view_factor1_opc")
+get_top20(bulk_weights_4v_f2,    bulk_anno_df,    "peak_key", "GENENAME",   "4view_factor2_bulk")
+get_top20(opalin_weights_4v_f3,  opalin_anno_cp,  "peak_key", "GENENAME.x", "4view_factor3_opalin")
+get_top20(opc_weights_4v_f3,     opc_anno_cp,     "peak_key", "GENENAME.x", "4view_factor3_opc")
+get_top20(bulk_weights_4v_f4,    bulk_anno_df,    "peak_key", "GENENAME",   "4view_factor4_bulk")
+
+# GO ENRICHMENT
+ego_4v_f1_opalin  <- run_go_factor(opalin_weights_4v_f1,  opalin_anno_cp,  "peak_key", "geneId", "4view_factor1_opalin_positive",  sc_background_entrez,   mode = "positive")
+ego_4v_f1_plekhg1 <- run_go_factor(plekhg1_weights_4v_f1, plekhg1_anno_cp, "peak_key", "geneId", "4view_factor1_plekhg1_positive", sc_background_entrez,   mode = "positive")
+ego_4v_f1_opc     <- run_go_factor(opc_weights_4v_f1,     opc_anno_cp,     "peak_key", "geneId", "4view_factor1_opc_positive",     sc_background_entrez,   mode = "positive")
+ego_4v_f2_bulk    <- run_go_factor(bulk_weights_4v_f2,    bulk_anno_df,    "peak_key", "geneId", "4view_factor2_bulk_positive",    bulk_background_entrez, mode = "positive")
+ego_4v_f3_opalin  <- run_go_factor(opalin_weights_4v_f3,  opalin_anno_cp,  "peak_key", "geneId", "4view_factor3_opalin_positive",  sc_background_entrez,   mode = "positive")
+ego_4v_f3_opc     <- run_go_factor(opc_weights_4v_f3,     opc_anno_cp,     "peak_key", "geneId", "4view_factor3_opc_positive",     sc_background_entrez,   mode = "positive")
+ego_4v_f4_bulk    <- run_go_factor(bulk_weights_4v_f4,    bulk_anno_df,    "peak_key", "geneId", "4view_factor4_bulk_positive",    bulk_background_entrez, mode = "positive")
+
+cat("--- GO term counts - 4-view model ---\n")
+cat("Factor 1 opalin positive:", nrow(data.frame(ego_4v_f1_opalin)), "terms\n")
+cat("Factor 1 plekhg1 positive:", nrow(data.frame(ego_4v_f1_plekhg1)), "terms\n")
+cat("Factor 1 opc positive:", nrow(data.frame(ego_4v_f1_opc)), "terms\n")
+cat("Factor 2 bulk positive:", nrow(data.frame(ego_4v_f2_bulk)), "terms\n")
+cat("Factor 3 opalin positive:", nrow(data.frame(ego_4v_f3_opalin)), "terms\n")
+cat("Factor 3 opc positive:", nrow(data.frame(ego_4v_f3_opc)), "terms\n")
+cat("Factor 4 bulk positive:", nrow(data.frame(ego_4v_f4_bulk)), "terms\n")
+
+# rGREAT ENRICHMENT
+great_4v_f1_opalin  <- run_great_factor(opalin_weights_4v_f1,  "opalin",  1, sc_consensus,   "4view_factor1_opalin_positive",  mode = "positive")
+great_4v_f1_plekhg1 <- run_great_factor(plekhg1_weights_4v_f1, "plekhg1", 1, sc_consensus,   "4view_factor1_plekhg1_positive", mode = "positive")
+great_4v_f1_opc     <- run_great_factor(opc_weights_4v_f1,     "opc",     1, sc_consensus,   "4view_factor1_opc_positive",     mode = "positive")
+great_4v_f2_bulk    <- run_great_factor(bulk_weights_4v_f2,    "bulk",    2, bulk_consensus, "4view_factor2_bulk_positive",    mode = "positive")
+great_4v_f3_opalin  <- run_great_factor(opalin_weights_4v_f3,  "opalin",  3, sc_consensus,   "4view_factor3_opalin_positive",  mode = "positive")
+great_4v_f3_opc     <- run_great_factor(opc_weights_4v_f3,     "opc",     3, sc_consensus,   "4view_factor3_opc_positive",     mode = "positive")
+great_4v_f4_bulk    <- run_great_factor(bulk_weights_4v_f4,    "bulk",    4, bulk_consensus, "4view_factor4_bulk_positive",    mode = "positive")
+
+saveRDS(mofa_4view_vst, file.path(mofa_out_dir, "mofa_4view_vst_object.rds"))
+cat("All 4-view results saved to:", mofa_out_dir, "\n")
+
+
+# CHECK IF OPALIN AND OPC HVF PEAKS ARE DIFFERENT
+cat("Opalin HVF peaks:", nrow(opalin_hvf), "\n")
+cat("OPC HVF peaks:", nrow(opc_hvf), "\n")
+
+# HOW MANY PEAKS ARE SHARED BETWEEN OPALIN AND OPC HVF
+shared_hvf <- intersect(rownames(opalin_hvf), rownames(opc_hvf))
+cat("Shared HVF peaks between Opalin and OPC:", length(shared_hvf), "\n")
+
+# CHECK DIMENSIONS OF VST MATRICES
+dim(opalin_vst)
+dim(opc_vst)
+
+# CHECK IF ROWNAMES ARE IDENTICAL
+cat("Identical rownames:", identical(rownames(opalin_vst), rownames(opc_vst)), "\n")
+
+
+
+
+
