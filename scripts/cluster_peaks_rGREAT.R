@@ -3,7 +3,7 @@
 # LOADS SAVED WEIGHTS AND RUNS rGREAT ENRICHMENT FOR ALL MODELS AND FACTORS
 # USES POSITIVE AND NEGATIVE WEIGHTS FOR EACH FACTOR/VIEW COMBINATION
 # BACKGROUND: SC CONSENSUS PEAKS FOR SC VIEWS, BULK UNION PEAKS FOR BULK VIEWS
-# DOTPLOTS SAVED AS PDFs USING OKABE-ITO COLOUR BLIND FRIENDLY PALETTE
+# DOTPLOTS SAVED AS PNGS USING OKABE-ITO COLOUR BLIND FRIENDLY PALETTE
 
 .libPaths(c(
   "/cephfs/volumes/hpc_data_usr/k25093549/eabe5dc4-1fa9-4cdc-b2af-6a4d37d00142/R/R/x86_64-pc-linux-gnu-library/4.5",
@@ -107,10 +107,11 @@ plot_great_dotplot <- function(tb_sig, label, mode, n_show = 20) {
     )
   
   ggsave(
-    file.path(rgreat_out_dir, paste0("dotplot_rGREAT_", label, "_", mode, ".pdf")),
+    file.path(rgreat_out_dir, paste0("dotplot_rGREAT_", label, "_", mode, ".png")),
     plot = p,
     width = 10,
-    height = 8
+    height = 8,
+    dpi = 300
   )
   
   return(p)
@@ -177,9 +178,9 @@ run_great_both <- function(weights_df, view, label, background_gr, n_top = 500) 
   run_great_factor(weights_df, view, label, background_gr, n_top = n_top, mode = "negative")
 }
 
-# =========================
+
 # MODEL 1: BULK VS OPALIN+
-# =========================
+
 cat("\n=== rGREAT - Opalin model ===\n")
 run_great_both(bulk_weights_f1,   "bulk",   "opalin_factor1_bulk",   bulk_consensus)
 run_great_both(opalin_weights_f2, "opalin", "opalin_factor2_opalin", sc_consensus)
@@ -191,9 +192,9 @@ run_great_both(opalin_weights_f6, "opalin", "opalin_factor6_opalin", sc_consensu
 run_great_both(bulk_weights_f7,   "bulk",   "opalin_factor7_bulk",   bulk_consensus)
 run_great_both(opalin_weights_f7, "opalin", "opalin_factor7_opalin", sc_consensus)
 
-# ==========================
+
 # MODEL 2: BULK VS PLEKHG1+
-# ==========================
+
 cat("\n=== rGREAT - Plekhg1 model ===\n")
 run_great_both(plekhg1_weights_f1,      "plekhg1", "plekhg1_factor1_plekhg1", sc_consensus)
 run_great_both(bulk_weights_plekhg1_f2, "bulk",    "plekhg1_factor2_bulk",    bulk_consensus)
@@ -205,9 +206,9 @@ run_great_both(plekhg1_weights_f6,      "plekhg1", "plekhg1_factor6_plekhg1", sc
 run_great_both(bulk_weights_plekhg1_f7, "bulk",    "plekhg1_factor7_bulk",    bulk_consensus)
 run_great_both(plekhg1_weights_f7,      "plekhg1", "plekhg1_factor7_plekhg1", sc_consensus)
 
-# =====================
+
 # MODEL 3: BULK VS OPC
-# =====================
+
 cat("\n=== rGREAT - OPC model ===\n")
 run_great_both(bulk_weights_opc_f1, "bulk", "opc_factor1_bulk", bulk_consensus)
 run_great_both(opc_weights_f2,      "opc",  "opc_factor2_opc",  sc_consensus)
