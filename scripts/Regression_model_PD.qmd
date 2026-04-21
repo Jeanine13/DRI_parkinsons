@@ -1,0 +1,213 @@
+---
+title: "Regression_model_PD"
+format: html
+editor: visual
+---
+
+Regression model to investigate correlation between PD status and Factor score (covariate SEX)
+
+Factor Score ~ PD + Sex
+
+
+```{r}
+# PD ASSOCIATION TESTING SCRIPT
+# MULTIPLE LINEAR REGRESSION: FACTOR SCORE ~ PD + SEX
+# APPLIED SEPARATELY TO EACH MOFA MODEL
+# ONE REGRESSION PER FACTOR, BH CORRECTION WITHIN EACH MODEL
+
+.libPaths(c(
+  "/cephfs/volumes/hpc_data_usr/k25093549/eabe5dc4-1fa9-4cdc-b2af-6a4d37d00142/R/R/x86_64-pc-linux-gnu-library/4.5",
+  .libPaths()
+))
+
+library(MOFA2)
+library(ggplot2)
+
+mofa_out_dir <- "/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/new_sc_mofa_clean_14042026"
+pd_out_dir   <- file.path(mofa_out_dir, "pd_association")
+dir.create(pd_out_dir, recursive = TRUE, showWarnings = FALSE)
+
+# LOAD SAVED MOFA MODELS
+mofa_opalin_vst  <- readRDS(file.path(mofa_out_dir, "mofa_opalin_vst_object.rds"))
+mofa_plekhg1_vst <- readRDS(file.path(mofa_out_dir, "mofa_plekhg1_vst_object.rds"))
+mofa_opc_vst     <- readRDS(file.path(mofa_out_dir, "mofa_opc_vst_object.rds"))
+mofa_4view_vst   <- readRDS(file.path(mofa_out_dir, "mofa_4view_vst_object.rds"))
+
+# SAMPLE METADATA
+# REPLACE SEX VALUES WITH ACTUAL VALUES FROM YOUR COHORT
+sample_meta_full <- data.frame(
+  sample    = c("PD1222", "PD1231", "PD726",  "PD833",  "PD936",
+                "PDC167", "PDC184", "PDC197", "PDC87"),
+  condition = c("PD",      "PD",     "PD",     "PD",     "PD",
+                "Control", "Control","Control","Control"),
+  pd_binary = c(1, 1, 1, 1, 1, 0, 0, 0, 0),
+  sex       = c("M", "F", "M", "M", "F",
+                "F", "M", "F", "M"),
+  stringsAsFactors = FALSE
+)
+sample_meta_full <- sample_meta_full[sample_meta_full$sample %in% mofa_samples, ]
+
+cat("Sample metadata loaded:", nrow(sample_meta_full), "samples\n")
+print(sample_meta_full)
+
+# REGRESSION FUNCTION
+# RUNS ONE REGRESSION PER FACTOR FOR EACH GIVEN MOFA MODEL
+# MODEL: FACTOR SCORE ~ PD STATUS + SEX
+
+
+run_pd_regression <- function(mofa_obj, model_name) {
+  
+  cat("\n--- Running regression for", model_name, "---\n")
+  
+  # EXTRACT FACTOR SCORES FROM MOFA MODEL
+  # RETURNS ONE ROW PER SAMPLE PER FACTOR
+  factors_df <- as.data.frame(get_factors(mofa_obj, as.data.frame = TRUE))
+  
+  # MERGE FACTOR SCORES WITH SAMPLE METADATA
+  factors_df <- merge(factors_df,
+                      sample_meta_full,
+                      by.x = "sample",
+                      by.y = "sample")
+  
+  # ENCODE SEX AS FACTOR
+  # R HANDLES DUMMY CODING AUTOMATICALLY
+  factors_df$sex <- factor(factors_df$sex)
+  
+  results <- list()
+  
+  for (f in unique(factors_df$factor)) {
+    
+    # SUBSET TO ONE FACTOR AT A TIME
+    fdata <- factors_df[factors_df$factor == f, ]
+    n     <- nrow(fdata)
+    
+    # FIT MULTIPLE LINEAR REGRESSION
+    # OUTCOME: FACTOR SCORE
+    # PREDICTORS: PD STATUS + SEX
+    mod <- lm(value ~ pd_binary + sex, data = fdata)
+    s   <- summary(mod)
+    
+    # EXTRACT PD COEFFICIENT AND STATISTICS
+    pd_row <- s$coefficients["pd_binary", ]
+    
+    results[[f]] <- data.frame(
+      factor    = f,
+      model     = model_name,
+      n         = n,
+      estimate  = pd_row["Estimate"],
+      std_error = pd_row["Std. Error"],
+      t_value   = pd_row["t value"],
+      p_value   = pd_row["Pr(>|t|)"],
+      r_squared = s$r.squared
+    )
+  }
+  
+  # COMBINE RESULTS ACROSS ALL FACTORS
+  results_df <- do.call(rbind, results)
+  
+  # APPLY BH CORRECTION ACROSS FACTORS WITHIN THIS MODEL
+  results_df$p_adj <- p.adjust(results_df$p_value, method = "BH")
+  results_df <- results_df[order(results_df$p_value), ]
+  
+  # SAVE RESULTS CSV
+  write.csv(results_df,
+            file.path(pd_out_dir,
+                      paste0(model_name, "_pd_regression_results.csv")),
+            row.names = FALSE)
+  
+  # PRINT RESULTS
+  cat("Results for", model_name, "(n =", unique(results_df$n), "):\n")
+  print(results_df[, c("factor", "n", "estimate", "std_error",
+                        "p_value", "p_adj", "r_squared")])
+  
+  # SAVE RESIDUAL DIAGNOSTIC PLOTS
+  # USED TO VISUALLY ASSESS MODEL ASSUMPTIONS
+  # QQ PLOT AND RESIDUALS VS FITTED FOR EACH FACTOR
+  pdf(file.path(pd_out_dir,
+                paste0(model_name, "_residual_diagnostics.pdf")))
+  for (f in unique(factors_df$factor)) {
+    fdata <- factors_df[factors_df$factor == f, ]
+    mod   <- lm(value ~ pd_binary + sex, data = fdata)
+    par(mfrow = c(2, 2))
+    plot(mod, main = paste(model_name, f))
+  }
+  dev.off()
+  
+  return(results_df)
+}
+
+
+# RUN REGRESSION ANALYSIS SEPERTALEY FOR ALL FOUR MOFA MODELS
+
+
+res_opalin  <- run_pd_regression(mofa_opalin_vst,  "opalin")
+res_plekhg1 <- run_pd_regression(mofa_plekhg1_vst, "plekhg1")
+res_opc     <- run_pd_regression(mofa_opc_vst,     "opc")
+res_4view   <- run_pd_regression(mofa_4view_vst,   "4view")
+
+# VISUALISE REGRESSION RESULTS
+# BAR PLOT OF PD COEFFICIENT PER FACTOR
+# COLOURED BY P_ADJ < 0.05
+
+
+plot_regression_results <- function(results_df, model_name) {
+  
+  # ORDER FACTORS NUMERICALLY
+  results_df$factor <- factor(
+    results_df$factor,
+    levels = paste0("Factor", sort(as.numeric(
+      gsub("Factor", "", results_df$factor)
+    )))
+  )
+  
+  p <- ggplot(results_df,
+              aes(x    = factor,
+                  y    = estimate,
+                  fill = p_adj < 0.05)) +
+    geom_col(alpha = 0.8) +
+    geom_errorbar(aes(ymin = estimate - std_error,
+                      ymax = estimate + std_error),
+                  width = 0.2) +
+    geom_hline(yintercept = 0,
+               linetype   = "dashed",
+               colour     = "grey50") +
+    scale_fill_manual(values = c("TRUE"  = "#E69F00",
+                                 "FALSE" = "#0072B2"),
+                      name   = "p.adj < 0.05",
+                      labels = c("TRUE" = "Yes",
+                                 "FALSE" = "No")) +
+    labs(title    = paste(model_name, "- Factor association with PD"),
+         subtitle = paste0("Multiple linear regression: Factor score ~ PD + Sex",
+                           " | n = ", unique(results_df$n)),
+         x        = "Factor",
+         y        = "PD coefficient (estimate ± SE)") +
+    theme_classic() +
+    theme(axis.text.x   = element_text(angle = 45, hjust = 1),
+          plot.subtitle = element_text(size = 9, colour = "grey40"))
+  
+  ggsave(
+    file.path(pd_out_dir,
+              paste0(model_name, "_pd_regression_plot.pdf")),
+    plot   = p,
+    width  = 8,
+    height = 5
+  )
+  
+  return(p)
+}
+
+# GENERATE PLOTS FOR ALL FOUR MODELS
+plot_regression_results(res_opalin,  "Opalin+")
+plot_regression_results(res_plekhg1, "Plekhg1+")
+plot_regression_results(res_opc,     "OPC")
+plot_regression_results(res_4view,   "4-view")
+
+cat("\nAll PD association analyses complete\n")
+cat("Results saved to:", pd_out_dir, "\n")
+```
+
+
+
+
+
+
