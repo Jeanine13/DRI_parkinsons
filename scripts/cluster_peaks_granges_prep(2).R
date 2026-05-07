@@ -115,15 +115,15 @@ overlaps_opc     <- suppressWarnings(findOverlaps(bulk_gr, opc_gr,     ignore.st
 
 opalin_shared      <- bulk_peaks[unique(queryHits(overlaps_opalin))]
 opalin_unique_bulk <- bulk_peaks[!seq_along(bulk_peaks) %in% queryHits(overlaps_opalin)]
-opalin_unique_sc   <- opalin_peaks[!seq_along(opalin_peaks) %in% subjectHits(overlaps_opalin)]
+opalin_unique_sc   <- opalin_peaks[!seq_along(opalin_peaks) %in% unique(subjectHits(overlaps_opalin))]
 
 plekhg1_shared      <- bulk_peaks[unique(queryHits(overlaps_plekhg1))]
 plekhg1_unique_bulk <- bulk_peaks[!seq_along(bulk_peaks) %in% queryHits(overlaps_plekhg1)]
-plekhg1_unique_sc   <- plekhg1_peaks[!seq_along(plekhg1_peaks) %in% subjectHits(overlaps_plekhg1)]
+plekhg1_unique_sc   <- plekhg1_peaks[!seq_along(plekhg1_peaks) %in% unique(subjectHits(overlaps_plekhg1))]
 
 opc_shared      <- bulk_peaks[unique(queryHits(overlaps_opc))]
 opc_unique_bulk <- bulk_peaks[!seq_along(bulk_peaks) %in% queryHits(overlaps_opc)]
-opc_unique_sc   <- opc_peaks[!seq_along(opc_peaks) %in% subjectHits(overlaps_opc)]
+opc_unique_sc   <- opc_peaks[!seq_along(opc_peaks) %in% unique(subjectHits(overlaps_opc))]
 
 cat("Opalin+  - shared:", length(opalin_shared),
     "| bulk unique:", length(opalin_unique_bulk),
@@ -178,15 +178,15 @@ cat("Total union genomic regions across all datasets:", length(all_union_gr), "\
 
 union_ids <- make_union_ids(all_union_gr)
 
-peak_sets_genomic <- list(
-  Bulk    = union_ids[countOverlaps(all_union_gr, bulk_gr,    ignore.strand = TRUE) > 0],
-  Opalin  = union_ids[countOverlaps(all_union_gr, opalin_gr,  ignore.strand = TRUE) > 0],
-  Plekhg1 = union_ids[countOverlaps(all_union_gr, plekhg1_gr, ignore.strand = TRUE) > 0],
-  OPCs    = union_ids[countOverlaps(all_union_gr, opc_gr,     ignore.strand = TRUE) > 0]
+peak_sets_peaks <- list(
+  Bulk    = bulk_peaks,
+  Opalin  = opalin_peaks[unique(subjectHits(findOverlaps(bulk_gr, opalin_gr,  ignore.strand = TRUE)))],
+  Plekhg1 = plekhg1_peaks[unique(subjectHits(findOverlaps(bulk_gr, plekhg1_gr, ignore.strand = TRUE)))],
+  OPCs    = opc_peaks[unique(subjectHits(findOverlaps(bulk_gr, opc_gr,     ignore.strand = TRUE)))]
 )
 
 p_venn <- ggVennDiagram(
-  peak_sets_genomic,
+  peak_sets_peaks,
   label_alpha = 0,
   set_color   = c(col_bulk, col_opalin, col_plekhg1, col_opc)
 ) +

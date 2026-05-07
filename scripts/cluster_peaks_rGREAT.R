@@ -220,7 +220,7 @@ run_great_both(opc_weights_f6,      "opc",  "opc_factor6_opc",  sc_consensus)
 run_great_both(bulk_weights_opc_f7, "bulk", "opc_factor7_bulk", bulk_consensus)
 run_great_both(opc_weights_f7,      "opc",  "opc_factor7_opc",  sc_consensus)
 
-# ==========================================
+
 # MODEL 4: 4-VIEW (BULK + ALL THREE SUBTYPES)
 # ==========================================
 cat("\n=== rGREAT - 4-view model ===\n")
@@ -262,3 +262,19 @@ run_great_both(opc_weights_4v_f7,     "opc",     "4view_factor7_opc",     sc_con
 
 cat("\nAll rGREAT enrichment complete\n")
 cat("Results saved to:", rgreat_out_dir, "\n")
+
+
+#adding more rGREAT
+
+# OPC FACTOR 2 BULK - POSITIVE WEIGHTS
+run_great_factor(bulk_weights_opc_f2, "bulk", 
+                 "opc_factor2_bulk", 
+                 bulk_consensus, 
+                 mode = "positive")
+
+# OPC FACTOR 2 BULK - NEGATIVE WEIGHTS
+run_great_factor(bulk_weights_opc_f2, "bulk", 
+                 "opc_factor2_bulk", 
+                 bulk_consensus, 
+                 mode = "negative")
+
