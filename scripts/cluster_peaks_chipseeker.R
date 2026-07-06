@@ -8,9 +8,8 @@
   .libPaths()
 ))
 
-# DEFINE OUTPUT DIRECTORY
-mofa_out_dir <- "/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/new_sc_mofa_clean_14042026"
-dir.create(mofa_out_dir, recursive = TRUE, showWarnings = FALSE)
+
+
 
 # LOAD GRANGES AND VST DATA
 load("/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/mofa_OLIGO_clusterpeaks_granges_vst.RData")
@@ -30,21 +29,50 @@ seqlevelsStyle(opc_gr)     <- "UCSC"
 
 # ANNOTATE ALL PEAKS WITH GENIC LOCATIONS AND GENE ANNOTATION
 # annoDb = "org.Hs.eg.db" ADDS GENE ANNOTATION FIELDS SUCH AS SYMBOL AND GENENAME
-bulk_anno_df <- as.data.frame(
-  annotatePeak(bulk_gr, tssRegion = c(-3000, 3000), TxDb = txdb, annoDb = "org.Hs.eg.db")
-)
+# DEFINE DESCRIPTIVE ANALYSIS PLOTS DIRECTORY
+descriptive_out_dir <- "/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/plots/new_sc_data_plots_042026/descriptive_analysis/da_2906"
+dir.create(descriptive_out_dir, recursive = TRUE, showWarnings = FALSE)
 
-opalin_anno_cp <- as.data.frame(
-  annotatePeak(opalin_gr, tssRegion = c(-3000, 3000), TxDb = txdb, annoDb = "org.Hs.eg.db")
-)
+# KEEP THE RAW annotatePeak() OUTPUT (csAnno OBJECTS) FOR PLOTTING
+# THESE ARE GENERATED BEFORE as.data.frame() IS APPLIED
+bulk_anno    <- annotatePeak(bulk_gr,    tssRegion = c(-3000, 3000), TxDb = txdb, annoDb = "org.Hs.eg.db")
+opalin_anno  <- annotatePeak(opalin_gr,  tssRegion = c(-3000, 3000), TxDb = txdb, annoDb = "org.Hs.eg.db")
+plekhg1_anno <- annotatePeak(plekhg1_gr, tssRegion = c(-3000, 3000), TxDb = txdb, annoDb = "org.Hs.eg.db")
+opc_anno     <- annotatePeak(opc_gr,     tssRegion = c(-3000, 3000), TxDb = txdb, annoDb = "org.Hs.eg.db")
 
-plekhg1_anno_cp <- as.data.frame(
-  annotatePeak(plekhg1_gr, tssRegion = c(-3000, 3000), TxDb = txdb, annoDb = "org.Hs.eg.db")
-)
+# THEN CONVERT TO DATA FRAMES AS BEFORE
+bulk_anno_df    <- as.data.frame(bulk_anno)
+opalin_anno_cp  <- as.data.frame(opalin_anno)
+plekhg1_anno_cp <- as.data.frame(plekhg1_anno)
+opc_anno_cp     <- as.data.frame(opc_anno)
 
-opc_anno_cp <- as.data.frame(
-  annotatePeak(opc_gr, tssRegion = c(-3000, 3000), TxDb = txdb, annoDb = "org.Hs.eg.db")
-)
+# FUNCTION TO SAVE BOTH SUMMARY PLOTS FOR A GIVEN DATASET
+save_chipseeker_plots <- function(anno_obj, label) {
+  
+  # PLOT 1 - GENOMIC FEATURE DISTRIBUTION (% OF PEAKS PER FEATURE)
+  png(
+    file.path(descriptive_out_dir, paste0("annobar_", label, ".png")),
+    width = 1000, height = 500, res = 150
+  )
+  print(plotAnnoBar(anno_obj))
+  dev.off()
+  
+  # PLOT 2 - DISTANCE TO TSS DISTRIBUTION
+  png(
+    file.path(descriptive_out_dir, paste0("disttotss_", label, ".png")),
+    width = 1000, height = 500, res = 150
+  )
+  print(plotDistToTSS(anno_obj))
+  dev.off()
+  
+  cat("Saved plots for:", label, "\n")
+}
+
+# RUN FOR ALL FOUR DATASETS, SEPARATELY
+save_chipseeker_plots(bulk_anno,    "bulk")
+save_chipseeker_plots(opalin_anno,  "opalin")
+save_chipseeker_plots(plekhg1_anno, "plekhg1")
+save_chipseeker_plots(opc_anno,     "opc")
 
 # CREATE PEAK KEYS FOR MERGING WITH MOFA WEIGHTS
 # BULK PEAKS ARE IN chr1_start_end FORMAT
