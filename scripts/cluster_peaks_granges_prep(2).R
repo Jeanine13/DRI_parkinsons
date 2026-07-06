@@ -235,23 +235,15 @@ cat(
 
 make_euler <- function(shared, bulk_unique, sc_unique, label, colour){
   
-  fit <- euler(c(
-    Bulk = bulk_unique,
-    label = sc_unique,
-    Shared = shared
-  ))
+  set_input <- c(bulk_unique, sc_unique, shared)
+  names(set_input) <- c("Bulk", label, paste0("Bulk&", label))
   
+  fit <- euler(set_input)
   
   png(
-    file.path(
-      out_dir,
-      paste0("euler_bulk_vs_", label, ".png")
-    ),
-    width = 800,
-    height = 700,
-    res = 150
+    file.path(out_dir, paste0("euler_bulk_vs_", label, ".png")),
+    width = 800, height = 700, res = 150
   )
-  
   
   plot(
     fit,
@@ -261,9 +253,7 @@ make_euler <- function(shared, bulk_unique, sc_unique, label, colour){
     main = paste("Bulk vs", label)
   )
   
-  
   dev.off()
-  
 }
 
 
