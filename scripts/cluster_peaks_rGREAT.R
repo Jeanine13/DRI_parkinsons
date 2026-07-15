@@ -3,7 +3,7 @@
 # LOADS SAVED WEIGHTS AND RUNS rGREAT ENRICHMENT FOR ALL MODELS AND FACTORS
 # USES POSITIVE AND NEGATIVE WEIGHTS FOR EACH FACTOR/VIEW COMBINATION
 # BACKGROUND: SC CONSENSUS PEAKS FOR SC VIEWS, BULK UNION PEAKS FOR BULK VIEWS
-# DOTPLOTS SAVED AS PNGS USING OKABE-ITO COLOUR BLIND FRIENDLY PALETTE
+
 
 .libPaths(c(
   "/cephfs/volumes/hpc_data_usr/k25093549/eabe5dc4-1fa9-4cdc-b2af-6a4d37d00142/R/R/x86_64-pc-linux-gnu-library/4.5",
@@ -70,6 +70,7 @@ sc_peaks_to_gr <- function(peaks) {
 # DOTPLOT FUNCTION USING OKABE-ITO COLOUR BLIND FRIENDLY PALETTE
 # BLUE (#0072B2) FOR LOW P.ADJUST (MOST SIGNIFICANT)
 # AMBER (#E69F00) FOR HIGH P.ADJUST (LESS SIGNIFICANT)
+
 plot_great_dotplot <- function(tb_sig, label, mode, n_show = 20) {
   if (is.null(tb_sig) || nrow(tb_sig) == 0) {
     message("No significant terms for ", label, " - ", mode, " - skipping plot")
@@ -172,7 +173,7 @@ run_great_factor <- function(weights_df, view, label, background_gr,
   return(tb_sig)
 }
 
-# HELPER TO RUN BOTH POSITIVE AND NEGATIVE FOR A GIVEN FACTOR/VIEW
+# RUN BOTH POSITIVE AND NEGATIVE FOR A GIVEN FACTOR/VIEW
 run_great_both <- function(weights_df, view, label, background_gr, n_top = 500) {
   run_great_factor(weights_df, view, label, background_gr, n_top = n_top, mode = "positive")
   run_great_factor(weights_df, view, label, background_gr, n_top = n_top, mode = "negative")
@@ -222,8 +223,7 @@ run_great_both(opc_weights_f7,      "opc",  "opc_factor7_opc",  sc_consensus)
 
 
 # MODEL 4: 4-VIEW (BULK + ALL THREE SUBTYPES)
-# ==========================================
-cat("\n=== rGREAT - 4-view model ===\n")
+
 
 # F1 SC SHARED - ALL THREE SC SUBTYPES
 run_great_both(opalin_weights_4v_f1,  "opalin",  "4view_factor1_opalin",  sc_consensus)
@@ -264,7 +264,7 @@ cat("\nAll rGREAT enrichment complete\n")
 cat("Results saved to:", rgreat_out_dir, "\n")
 
 
-#adding more rGREAT
+# Additional Enrichment
 
 # OPC FACTOR 2 BULK - POSITIVE WEIGHTS
 run_great_factor(bulk_weights_opc_f2, "bulk", 
