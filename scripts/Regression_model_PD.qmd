@@ -293,4 +293,121 @@ plot_factor_boxplots(mofa_opc_vst,     "opc")
 plot_factor_boxplots(mofa_4view_vst,   "4view")
 ```
 
+Forest plots udpated 
+
+```{r}
+# FOREST PLOTS FOR ALL FOUR MOFA MODELS
+# FACTOR SCORE ~ PD + SEX REGRESSION RESULTS
+# SAVES AS PDF
+
+.libPaths(c(
+  "/cephfs/volumes/hpc_data_usr/k25093549/eabe5dc4-1fa9-4cdc-b2af-6a4d37d00142/R/R/x86_64-pc-linux-gnu-library/4.5",
+  .libPaths()
+))
+
+library(ggplot2)
+
+
+# DIRECTORIES
+
+
+mofa_out_dir <- "/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/new_sc_mofa_clean_14042026"
+pd_out_dir   <- file.path(mofa_out_dir, "pd_association")
+forest_dir   <- file.path(mofa_out_dir, "forest_plots")
+dir.create(forest_dir, recursive = TRUE, showWarnings = FALSE)
+
+
+# LOAD REGRESSION RESULTS FROM SAVED CSVS
+
+
+res_opalin  <- read.csv(file.path(pd_out_dir, "opalin_pd_regression_results.csv"))
+res_plekhg1 <- read.csv(file.path(pd_out_dir, "plekhg1_pd_regression_results.csv"))
+res_opc     <- read.csv(file.path(pd_out_dir, "opc_pd_regression_results.csv"))
+res_4view   <- read.csv(file.path(pd_out_dir, "4view_pd_regression_results.csv"))
+
+cat("Regression results loaded\n")
+
+# =============================================
+# FOREST PLOT FUNCTION
+# =============================================
+
+plot_forest <- function(results_df, model_name) {
+  
+  # ORDER FACTORS NUMERICALLY - HIGHEST FACTOR AT TOP
+  results_df$factor <- factor(
+    results_df$factor,
+    levels = paste0("Factor", sort(as.numeric(
+      gsub("Factor", "", results_df$factor)
+    ), decreasing = TRUE))
+  )
+  
+  p <- ggplot(results_df,
+              aes(x      = estimate,
+                  y      = factor,
+                  colour = p_adj < 0.05)) +
+    # POINT - EFFECT SIZE ESTIMATE
+    geom_point(size = 3) +
+    # HORIZONTAL ERROR BAR - 95% CONFIDENCE INTERVAL
+    geom_errorbarh(aes(xmin = ci_lower,
+                       xmax = ci_upper),
+                   height = 0.2,
+                   linewidth = 0.8) +
+    # REFERENCE LINE AT ZERO - NO EFFECT
+    geom_vline(xintercept = 0,
+               linetype   = "dashed",
+               colour     = "grey50",
+               linewidth  = 0.5) +
+    # COLOURS - AMBER IF SIGNIFICANT, BLUE IF NOT
+    scale_colour_manual(
+      values = c("TRUE"  = "#E69F00",
+                 "FALSE" = "#0072B2"),
+      name   = "p.adj < 0.05",
+      labels = c("TRUE" = "Yes", "FALSE" = "No")
+    ) +
+    labs(
+      title    = paste(model_name, "— Factor association with PD"),
+      subtitle = paste0("Multiple linear regression: Factor score ~ PD + Sex",
+                        "\nn = ", unique(results_df$n),
+                        " | error bars = 95% CI"),
+      x        = "PD coefficient (estimate, 95% CI)",
+      y        = "Factor"
+    ) +
+    theme_bw(base_size = 10) +
+    theme(
+      panel.grid.major.y = element_blank(),
+      panel.grid.minor   = element_blank(),
+      plot.title         = element_text(face = "bold", size = 11),
+      plot.subtitle      = element_text(size = 9, colour = "grey40"),
+      legend.position    = "right",
+      legend.title       = element_text(size = 9),
+      legend.text        = element_text(size = 8)
+    )
+  
+  ggsave(
+    file.path(forest_dir, paste0(model_name, "_forest_plot.pdf")),
+    plot   = p,
+    width  = 7,
+    height = 5,
+    device = "pdf",
+    bg     = "white"
+  )
+  
+  cat("Saved forest plot:", model_name, "\n")
+  return(p)
+}
+
+# GENERATE FOREST PLOTS FOR ALL FOUR MODELS
+
+
+plot_forest(res_opalin,  "Opalin+")
+plot_forest(res_plekhg1, "Plekhg1+")
+plot_forest(res_opc,     "OPC")
+plot_forest(res_4view,   "4-view")
+
+cat("\nAll forest plots saved to:", forest_dir, "\n")
+```
+
+
+
+
 
