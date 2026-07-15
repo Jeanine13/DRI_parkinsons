@@ -1,0 +1,111 @@
+---
+title: "Sample_covariate_testing"
+format: html
+editor: visual
+---
+
+Testing samples to look at how covariatew confound with PD
+
+
+```{r}
+library(ggplot2) # for plotting
+
+library(patchwork)  # Combine multiple figures
+
+# OUTPUT DIRECTORY
+pd_out_dir <- "/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/new_sc_mofa_clean_14042026/pd_association"
+dir.create(pd_out_dir, recursive = TRUE, showWarnings = FALSE)
+
+```
+Add metadata - age boxplot
+shows age differs between PD and control sample
+```{r}
+p_age <- ggplot(sample_meta_full,
+                aes(x = condition, y = age, fill = condition)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+  geom_jitter(width = 0.1, size = 2.5) +
+  scale_fill_manual(values = c("Control" = "#0072B2",
+                               "PD"      = "#E69F00")) +
+  labs(title    = "Age at death",
+       subtitle = "Correlated with PD — excluded as covariate",
+       x        = "",
+       y        = "Age (years)") +
+  theme_classic() +
+  theme(legend.position = "none",
+        plot.subtitle   = element_text(size = 8, colour = "grey40"),
+        plot.title      = element_text(size = 10, face = "bold"))
+```
+
+PMI 
+
+```{r}
+p_pmi <- ggplot(sample_meta_full,
+                aes(x = condition, y = pmi, fill = condition)) +
+  geom_boxplot(alpha = 0.7, outlier.shape = NA) +
+  geom_jitter(width = 0.1, size = 2.5) +
+  scale_fill_manual(values = c("Control" = "#0072B2",
+                               "PD"      = "#E69F00")) +
+  labs(title    = "Post-mortem interval",
+       subtitle = "Differs between groups — excluded as covariate",
+       x        = "",
+       y        = "PMI (hours)") +
+  theme_classic() +
+  theme(legend.position = "none",
+        plot.subtitle   = element_text(size = 8, colour = "grey40"),
+        plot.title      = element_text(size = 10, face = "bold"))
+```
+
+Sex stacked barchart to show differnce between PD and Control
+
+
+```{r}
+p_sex <- ggplot(sample_meta_full,
+                aes(x = condition, fill = sex)) +
+  # STACKED BAR - position fill makes bars proportional (0-100%)
+  geom_bar(position = "fill", alpha = 0.8) +
+  # COLOURS - blue for male, pink for female (Okabe-Ito)
+  scale_fill_manual(values = c("M" = "#56B4E9",
+                               "F" = "#CC79A7"),
+                    name   = "Sex") +
+  # CONVERT Y AXIS TO PERCENTAGE
+  scale_y_continuous(labels = scales::percent) +
+  labs(title    = "Sex distribution",
+       subtitle = "Balanced between groups — retained as covariate",
+       x        = "",
+       y        = "Proportion") +
+  theme_classic() +
+  theme(plot.subtitle = element_text(size = 8, colour = "grey40"),
+        plot.title    = element_text(size = 10, face = "bold"))
+```
+
+Combine into a single plot
+```{r}
+
+p_combined <- p_age + p_pmi + p_sex +
+  plot_layout(ncol = 3) +
+  plot_annotation(
+    title   = "Justification for covariate selection",
+    caption = "Okabe-Ito colour-blind-friendly palette | n = 9 donors",
+    theme   = theme(
+      plot.title   = element_text(size = 12, face = "bold", hjust = 0.5),
+      plot.caption = element_text(size = 8, colour = "grey40")
+    )
+  )
+```
+
+```{r}
+ggsave(
+  file.path(pd_out_dir, "covariate_justification.pdf"),
+  plot   = p_combined,
+  width  = 10,
+  height = 4.5,
+  bg     = "white"
+)
+
+cat("Saved to:", file.path(pd_out_dir, "covariate_justification.png"), "\n")
+```
+
+
+
+
+

@@ -1,0 +1,336 @@
+# FACETED RGREAT DOTPLOTS - SELECTED FACTORS AND VIEWS
+# PAIRWISE MODELS AND 4-VIEW MODEL
+# TOP 10 TERMS PER FACTOR/DIRECTION BY P.ADJUST
+
+.libPaths(c(
+  "/cephfs/volumes/hpc_data_usr/k25093549/eabe5dc4-1fa9-4cdc-b2af-6a4d37d00142/R/R/x86_64-pc-linux-gnu-library/4.5",
+  .libPaths()
+))
+
+library(ggplot2)
+library(dplyr)
+library(patchwork)
+
+
+# DIRECTORIES
+
+
+base_path_pairwise <- "/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/new_sc_mofa_clean_14042026/rgreat_results"
+base_path_4view    <- "/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/new_sc_mofa_clean_14042026/rgreat_results_4view"
+plot_out_dir       <- "/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/new_sc_mofa_clean_14042026/dotplots_faceted"
+dir.create(plot_out_dir, recursive = TRUE, showWarnings = FALSE)
+
+
+# FUNCTION TO LOAD RGREAT CSV
+
+
+load_rgreat <- function(model, factor, view, direction, base_path) {
+  fname <- file.path(base_path,
+                     paste0("rGREAT_", model, "_factor", factor, "_", view, "_", direction, ".csv"))
+  if (!file.exists(fname)) {
+    message("File not found: ", fname)
+    return(NULL)
+  }
+  df <- read.csv(fname)
+  if (nrow(df) == 0) return(NULL)
+  df$factor    <- paste0("Factor", factor)
+  df$direction <- direction
+  df$view      <- view
+  df$model     <- model
+  return(df)
+}
+
+
+# FUNCTION TO BUILD FACETED DOTPLOT
+
+
+plot_model <- function(model, factors, view, base_path, top_n = 10, title = NULL) {
+  
+  all_data <- list()
+  
+  for (f in factors) {
+    for (dir in c("positive", "negative")) {
+      df <- load_rgreat(model, f, view, dir, base_path)
+      if (!is.null(df)) {
+        df <- df %>%
+          arrange(p_adjust) %>%
+          slice_head(n = top_n)
+        all_data[[length(all_data) + 1]] <- df
+      }
+    }
+  }
+  
+  if (length(all_data) == 0) {
+    message("No data found for model: ", model, " view: ", view)
+    return(NULL)
+  }
+  
+  combined <- bind_rows(all_data)
+  
+  combined$description <- ifelse(
+    nchar(combined$description) > 40,
+    paste0(substr(combined$description, 1, 40), "..."),
+    combined$description
+  )
+  
+  combined$direction <- factor(combined$direction,
+                               levels = c("positive", "negative"))
+  
+  combined$factor <- factor(combined$factor,
+                            levels = paste0("Factor", sort(as.numeric(
+                              gsub("Factor", "", unique(combined$factor))
+                            ))))
+  
+  p <- ggplot(combined, aes(
+    x      = fold_enrichment,
+    y      = reorder(description, fold_enrichment),
+    size   = observed_region_hits,
+    colour = p_adjust
+  )) +
+    geom_point() +
+    facet_grid(direction ~ factor, scales = "free_y", space = "free_y") +
+    scale_colour_gradient(
+      low  = "#0072B2",
+      high = "#E69F00",
+      name = "p.adjust",
+      guide = guide_colourbar(
+        barwidth       = 0.5,
+        barheight      = 4,
+        direction      = "vertical",
+        title.position = "top",
+        title.hjust    = 0.5
+      )
+    ) +
+    scale_size_continuous(name = "Region hits", range = c(1, 4)) +
+    labs(
+      title = title,
+      x     = "Fold enrichment",
+      y     = NULL
+    ) +
+    theme_bw(base_size = 8) +
+    theme(
+      strip.text      = element_text(size = 8, face = "bold"),
+      strip.text.y    = element_text(size = 7, angle = 0),
+      axis.text.y     = element_text(size = 6, lineheight = 0.7),
+      axis.text.x     = element_text(size = 6),
+      axis.title.x    = element_text(size = 7),
+      legend.position = "right",
+      legend.title    = element_text(size = 6),
+      legend.text     = element_text(size = 5),
+      legend.key.size = unit(0.3, "cm"),
+      plot.title      = element_text(face = "bold", size = 9),
+      panel.spacing.x = unit(0.3, "cm"),
+      panel.spacing.y = unit(0.05, "cm"),
+      plot.margin     = margin(2, 2, 2, 2)
+    )
+  
+  return(p)
+}
+
+
+# OPALIN MODEL
+
+
+cat("\n=== Opalin model ===\n")
+
+p_opalin_f1_bulk <- plot_model(
+  model     = "opalin",
+  factors   = 1,
+  view      = "bulk",
+  base_path = base_path_pairwise,
+  top_n     = 10,
+  title     = "Opalin+ model — Factor 1 — bulk view"
+)
+
+p_opalin_f2_opalin <- plot_model(
+  model     = "opalin",
+  factors   = 2,
+  view      = "opalin",
+  base_path = base_path_pairwise,
+  top_n     = 10,
+  title     = "Opalin+ model — Factor 2 — Opalin+ view"
+)
+
+p_opalin_f3_opalin <- plot_model(
+  model     = "opalin",
+  factors   = 3,
+  view      = "opalin",
+  base_path = base_path_pairwise,
+  top_n     = 10,
+  title     = "Opalin+ model — Factor 3 — Opalin+ view"
+)
+
+p_opalin_f4_bulk <- plot_model(
+  model     = "opalin",
+  factors   = 4,
+  view      = "bulk",
+  base_path = base_path_pairwise,
+  top_n     = 10,
+  title     = "Opalin+ model — Factor 4 — bulk view"
+)
+
+p_opalin_f4_opalin <- plot_model(
+  model     = "opalin",
+  factors   = 4,
+  view      = "opalin",
+  base_path = base_path_pairwise,
+  top_n     = 10,
+  title     = "Opalin+ model — Factor 4 — Opalin+ view"
+)
+
+# =============================================
+# OPC MODEL
+# =============================================
+
+cat("\n=== OPC model ===\n")
+
+p_opc_f1_bulk <- plot_model(
+  model     = "opc",
+  factors   = 1,
+  view      = "bulk",
+  base_path = base_path_pairwise,
+  top_n     = 10,
+  title     = "OPC model — Factor 1 — bulk view"
+)
+
+p_opc_f2_opc <- plot_model(
+  model     = "opc",
+  factors   = 2,
+  view      = "opc",
+  base_path = base_path_pairwise,
+  top_n     = 10,
+  title     = "OPC model — Factor 2 — OPC view"
+)
+
+p_opc_f3_opc <- plot_model(
+  model     = "opc",
+  factors   = 3,
+  view      = "opc",
+  base_path = base_path_pairwise,
+  top_n     = 10,
+  title     = "OPC model — Factor 3 — OPC view"
+)
+
+# =============================================
+# PLEKHG1 MODEL
+# =============================================
+
+cat("\n=== Plekhg1 model ===\n")
+
+p_plekhg1_f1_plekhg1 <- plot_model(
+  model     = "plekhg1",
+  factors   = 1,
+  view      = "plekhg1",
+  base_path = base_path_pairwise,
+  top_n     = 10,
+  title     = "Plekhg1+ model — Factor 1 — Plekhg1+ view"
+)
+
+p_plekhg1_f2_bulk <- plot_model(
+  model     = "plekhg1",
+  factors   = 2,
+  view      = "bulk",
+  base_path = base_path_pairwise,
+  top_n     = 10,
+  title     = "Plekhg1+ model — Factor 2 — bulk view"
+)
+
+p_plekhg1_f3_bulk <- plot_model(
+  model     = "plekhg1",
+  factors   = 3,
+  view      = "bulk",
+  base_path = base_path_pairwise,
+  top_n     = 10,
+  title     = "Plekhg1+ model — Factor 3 — bulk view"
+)
+
+# =============================================
+# 4-VIEW MODEL
+# =============================================
+
+cat("\n=== 4-view model ===\n")
+
+p_4view_f1_opalin <- plot_model(
+  model     = "4view",
+  factors   = 1,
+  view      = "opalin",
+  base_path = base_path_4view,
+  top_n     = 10,
+  title     = "4-view model — Factor 1 — Opalin+ view"
+)
+
+p_4view_f1_opc <- plot_model(
+  model     = "4view",
+  factors   = 1,
+  view      = "opc",
+  base_path = base_path_4view,
+  top_n     = 10,
+  title     = "4-view model — Factor 1 — OPC view"
+)
+
+p_4view_f2_bulk <- plot_model(
+  model     = "4view",
+  factors   = 2,
+  view      = "bulk",
+  base_path = base_path_4view,
+  top_n     = 10,
+  title     = "4-view model — Factor 2 — bulk view"
+)
+
+p_4view_f3_opalin <- plot_model(
+  model     = "4view",
+  factors   = 3,
+  view      = "opalin",
+  base_path = base_path_4view,
+  top_n     = 10,
+  title     = "4-view model — Factor 3 — Opalin+ view"
+)
+
+p_4view_f3_opc <- plot_model(
+  model     = "4view",
+  factors   = 3,
+  view      = "opc",
+  base_path = base_path_4view,
+  top_n     = 10,
+  title     = "4-view model — Factor 3 — OPC view"
+)
+
+# =============================================
+# SAVE ALL PLOTS
+# =============================================
+
+plots <- list(
+  opalin_f1_bulk       = p_opalin_f1_bulk,
+  opalin_f2_opalin     = p_opalin_f2_opalin,
+  opalin_f3_opalin     = p_opalin_f3_opalin,
+  opalin_f4_bulk       = p_opalin_f4_bulk,
+  opalin_f4_opalin     = p_opalin_f4_opalin,
+  opc_f1_bulk          = p_opc_f1_bulk,
+  opc_f2_opc           = p_opc_f2_opc,
+  opc_f3_opc           = p_opc_f3_opc,
+  plekhg1_f1_plekhg1   = p_plekhg1_f1_plekhg1,
+  plekhg1_f2_bulk      = p_plekhg1_f2_bulk,
+  plekhg1_f3_bulk      = p_plekhg1_f3_bulk,
+  fourview_f1_opalin   = p_4view_f1_opalin,
+  fourview_f1_opc      = p_4view_f1_opc,
+  fourview_f2_bulk     = p_4view_f2_bulk,
+  fourview_f3_opalin   = p_4view_f3_opalin,
+  fourview_f3_opc      = p_4view_f3_opc
+)
+
+for (name in names(plots)) {
+  if (!is.null(plots[[name]])) {
+    ggsave(
+      file.path(plot_out_dir, paste0("dotplot_faceted_", name, ".pdf")),
+      plot   = plots[[name]],
+      width  = 8,
+      height = 9,
+      device = "pdf"
+    )
+    cat("Saved:", name, "\n")
+  } else {
+    cat("Skipped (no data):", name, "\n")
+  }
+}
+
+cat("\nAll dotplots saved to:", plot_out_dir, "\n")

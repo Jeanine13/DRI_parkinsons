@@ -1,0 +1,4 @@
+"comparison","bulk_total","sc_total","bulk_overlap","sc_overlap","bulk_unique","sc_unique","pct_bulk_overlap","pct_sc_overlap"
+"Bulk vs Opalin+",99464,216554,71005,69093,28459,147461,71.39,31.91
+"Bulk vs Plekhg1+",99464,216167,66390,85679,33074,130488,66.75,39.64
+"Bulk vs OPCs",99464,221490,48242,86252,51222,135238,48.5,38.94

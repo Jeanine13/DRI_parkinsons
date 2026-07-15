@@ -1,0 +1,38 @@
+---
+title: "FILTER_RGREAT_GOTERMS"
+format: html
+editor: visual
+---
+
+
+```{r}
+# READ RGREAT RESULTS - POSITIVE WEIGHTS
+rgreat_f1_bulk_pos <- read.csv(file.path(mofa_out_dir, 
+                        "rgreat_results/rGREAT_opalin_factor1_bulk_positive.csv"))
+
+# APPLY FILTER
+rgreat_f1_bulk_pos_filtered <- rgreat_f1_bulk_pos %>%
+  filter(p_adjust < 0.05,
+         fold_enrichment > 2,
+         observed_region_hits >= 10) %>%
+  arrange(p_adjust, desc(fold_enrichment))
+
+# CHECK HOW MANY TERMS REMAIN
+cat("Terms before filtering:", nrow(rgreat_f1_bulk_pos), "\n")
+cat("Terms after filtering:", nrow(rgreat_f1_bulk_pos_filtered), "\n")
+
+# VIEW TOP TERMS
+head(rgreat_f1_bulk_pos_filtered[, c("id", "description", 
+                                      "fold_enrichment", 
+                                      "observed_region_hits", 
+                                      "p_adjust")], 20)
+
+# EXPORT FOR REVIGO
+revigo_input_pos <- rgreat_f1_bulk_pos_filtered[, c("id", "p_adjust")]
+write.csv(revigo_input_pos,
+          file.path(revigo_dir, "revigo_input_opalin_f1_bulk_pos.csv"),
+          row.names = FALSE)
+
+cat("Saved REVIGO input to:", file.path(revigo_dir, "revigo_input_opalin_f1_bulk_pos.csv"), "\n")
+```
+
