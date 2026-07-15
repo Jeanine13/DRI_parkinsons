@@ -99,16 +99,15 @@ train_mofa <- function(input_list, outfile, n_factors = 7, seed = 42) {
   return(mofa_obj)
 }
 
-# HELPER: EXTRACT WEIGHTS
+# EXTRACT WEIGHTS
 get_w <- function(mofa_obj, factor_num, view) {
   w <- get_weights(mofa_obj, views = view, factors = factor_num, as.data.frame = TRUE)
   w$feature <- as.character(w$feature)
   w
 }
 
-# HELPER: SAVE MOFA PLOTS + VARIANCE TABLES
-# Uses png() instead of ggsave() because MOFA plotting functions may not always
-# return plain ggplot objects in this environment
+# SAVE MOFA PLOTS + VARIANCE TABLES
+# Uses png() instead of ggsave()
 save_mofa_outputs <- function(mofa_obj, prefix) {
   png(
     filename = file.path(mofa_out_dir, paste0(prefix, "_variance_explained.png")),
@@ -200,9 +199,8 @@ save_all_feature_modes <- function(weights_df, anno_df, label, n_top = 20) {
   get_top_features(weights_df, anno_df, label, mode = "negative", n_top = n_top)
 }
 
-# =========================
 # MODEL 1: BULK VS OPALIN+
-# =========================
+
 mofa_opalin_vst <- train_mofa(
   list(bulk = as.matrix(bulk_hvf), opalin = as.matrix(opalin_hvf)),
   "mofa_opalin_newsc.hdf5",
@@ -247,9 +245,9 @@ save_all_feature_modes(opalin_weights_f7, opalin_anno_cp, "opalin_factor7_opalin
 saveRDS(mofa_opalin_vst, file.path(mofa_out_dir, "mofa_opalin_vst_object.rds"))
 cat("Opalin model complete\n")
 
-# ==========================
+
 # MODEL 2: BULK VS PLEKHG1+
-# ==========================
+
 mofa_plekhg1_vst <- train_mofa(
   list(bulk = as.matrix(bulk_hvf), plekhg1 = as.matrix(plekhg1_hvf)),
   "mofa_plekhg1_newsc.hdf5",
@@ -294,9 +292,9 @@ save_all_feature_modes(plekhg1_weights_f7, plekhg1_anno_cp, "plekhg1_factor7_ple
 saveRDS(mofa_plekhg1_vst, file.path(mofa_out_dir, "mofa_plekhg1_vst_object.rds"))
 cat("Plekhg1 model complete\n")
 
-# =====================
+
 # MODEL 3: BULK VS OPC
-# =====================
+
 mofa_opc_vst <- train_mofa(
   list(bulk = as.matrix(bulk_hvf), opc = as.matrix(opc_hvf)),
   "mofa_opc_newsc.hdf5",
@@ -341,9 +339,9 @@ save_all_feature_modes(opc_weights_f7, opc_anno_cp, "opc_factor7_opc")
 saveRDS(mofa_opc_vst, file.path(mofa_out_dir, "mofa_opc_vst_object.rds"))
 cat("OPC model complete\n")
 
-# ==========================================
+
 # MODEL 4: 4-VIEW (BULK + ALL THREE SUBTYPES)
-# ==========================================
+
 mofa_4view_vst <- train_mofa(
   list(
     bulk    = as.matrix(bulk_hvf),
@@ -465,4 +463,4 @@ cat("All models complete - weights saved for rGREAT script\n")
 cat("All results saved to:", mofa_out_dir, "\n")
 
 
-#SHOULD NOT HAVE TO RUN AGAIN
+
