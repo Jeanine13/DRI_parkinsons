@@ -8,9 +8,9 @@ library(MOFA2)
 # TOP-FEATURES DATA HEATMAPS (4-VIEW MODEL)
 
 # Standalone script — loads the already-trained 4-view MOFA object directly
-# from disk, so you don't need to rerun training or the weight-extraction
+
 # steps. plot_data_heatmap() selects its own top features and pulls sample
-# metadata (condition) straight from the saved object.
+# metadata (condition) straight from the saved object
 
 # mofa_out_dir = where the trained model (.rds) already lives — do not change
 mofa_out_dir <- "/scratch/prj/bcn_marzi_lab/analysis_cutandtag_pd_sc/student_data_package/jd_analysis_sc/saved_objects/new_sc_mofa_clean_14042026"
