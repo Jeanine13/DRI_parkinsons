@@ -1,2 +1,2 @@
-Pipeline development for intergrative analysis of Single-cell and bulk data from Cut&Tag data
-Pipeline so far, descriptive ananlysis, MOFA, GO
+Pipeline development for Multi-view MOFA2 integration of bulk and single-cell H3K27ac CUT&Tag in oligodendrocyte subtypes in Parkinson's disease
+
